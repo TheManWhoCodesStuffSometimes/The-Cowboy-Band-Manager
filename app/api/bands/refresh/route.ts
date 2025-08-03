@@ -1,3 +1,5 @@
+
+// app/api/bands/refresh/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 
 const REFRESH_DATA_WEBHOOK = 'https://thayneautomations.app.n8n.cloud/webhook/The-Cowboy-Saloon-refresh-data'
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('API Route Error:', error)
     return NextResponse.json(
-      { error: 'Failed to refresh band data', details: error.message }, 
+      { error: 'Failed to refresh band data', details: error instanceof Error ? error.message : 'Unknown error' }, 
       { status: 500 }
     )
   }
