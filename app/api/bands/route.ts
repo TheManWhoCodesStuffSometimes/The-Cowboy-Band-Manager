@@ -1,4 +1,3 @@
-// app/api/bands/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 
 const RETRIEVE_DATA_WEBHOOK = 'https://thayneautomations.app.n8n.cloud/webhook/The-Cowboy-Saloon-Retrieve-Data'
@@ -35,7 +34,10 @@ export async function GET() {
   } catch (error) {
     console.error('API Route Error:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch band data', details: error instanceof Error ? error.message : 'Unknown error' }, 
+      { 
+        error: 'Failed to fetch band data', 
+        details: error instanceof Error ? error.message : 'Unknown error occurred'
+      }, 
       { status: 500 }
     )
   }
