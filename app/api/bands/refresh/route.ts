@@ -34,12 +34,14 @@ export async function POST(request: NextRequest) {
     console.log('n8n response data:', data)
     
     return NextResponse.json(data)
+    
   } catch (error) {
     console.error('API Route Error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     return NextResponse.json(
       { 
         error: 'Failed to refresh band data', 
-        details: error instanceof Error ? error.message : 'Unknown error occurred'
+        details: errorMessage
       }, 
       { status: 500 }
     )
