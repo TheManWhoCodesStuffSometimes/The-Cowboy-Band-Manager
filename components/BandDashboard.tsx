@@ -34,9 +34,9 @@ export default function BandDashboard() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Webhook URLs
-  const RETRIEVE_DATA_WEBHOOK = 'https://thayneautomations.app.n8n.cloud/webhook/The-Cowboy-Saloon-Retrieve-Data'
-  const REFRESH_DATA_WEBHOOK = 'https://thayneautomations.app.n8n.cloud/webhook/The-Cowboy-Saloon-refresh-data'
+  // Internal API URLs (no CORS issues)
+  const RETRIEVE_DATA_API = '/api/bands'
+  const REFRESH_DATA_API = '/api/bands/refresh'
 
   // Transform Airtable data to our Band interface
   const transformAirtableData = (airtableRecords: any[]): Band[] => {
@@ -86,15 +86,11 @@ export default function BandDashboard() {
   const fetchBandData = async () => {
     try {
       setError(null)
-      const response = await fetch(RETRIEVE_DATA_WEBHOOK, {
-        method: 'POST',
+      const response = await fetch(RETRIEVE_DATA_API, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'retrieve',
-          timestamp: new Date().toISOString()
-        })
+        }
       })
 
       if (!response.ok) {
@@ -143,14 +139,12 @@ export default function BandDashboard() {
       setIsRefreshing(true)
       setError(null)
 
-      const response = await fetch(REFRESH_DATA_WEBHOOK, {
+      const response = await fetch(REFRESH_DATA_API, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'refresh',
-          timestamp: new Date().toISOString(),
           lastRefresh: lastRefresh?.toISOString()
         })
       })
