@@ -125,6 +125,7 @@ export default function BandDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <div className="test-class">TEST - This should be red with white text</div>
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
