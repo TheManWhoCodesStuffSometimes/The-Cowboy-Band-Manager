@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Test to see if this gets processed */
+.test-class {
+  @apply bg-red-500 text-white p-4;
+}
