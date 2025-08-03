@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MagnifyingGlassIcon, FunnelIcon, SpeakerWaveIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, FunnelIcon, SpeakerWaveIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { CheckCircleIcon, XCircleIcon, ClockIcon, StarIcon } from '@heroicons/react/24/solid'
 
 interface Band {
@@ -14,70 +14,177 @@ interface Band {
   estimatedDraw: string
   keyStrengths: string
   concerns: string
-  bookingStatus: 'New' | 'Contacted' | 'Negotiating' | 'Booked' | 'Declined'
+  bookingStatus: 'Not Contacted' | 'Contacted' | 'Negotiating' | 'Booked' | 'Passed'
   spotifyUrl?: string
   lastUpdated: string
-  recentActivity: string
-  industryBuzz: string
+  dateAnalyzed: string
+  confidenceLevel: 'High' | 'Medium' | 'Low'
+  aiAnalysisNotes: string
 }
 
-const mockBands: Band[] = [
-  {
-    id: '1',
-    name: 'Jamie Hansen',
-    overallScore: 87,
-    recommendation: 'BOOK SOON',
-    spotifyFollowers: 2834,
-    spotifyPopularity: 34,
-    estimatedDraw: '200-350',
-    keyStrengths: 'Strong local following, consistent touring, great live reviews',
-    concerns: 'Limited national exposure',
-    bookingStatus: 'New',
-    spotifyUrl: 'https://open.spotify.com/artist/example',
-    lastUpdated: '2024-08-01',
-    recentActivity: '2024 album release, active touring',
-    industryBuzz: 'Featured in local music blog, radio play'
-  },
-  {
-    id: '2',
-    name: 'Bottomland',
-    overallScore: 79,
-    recommendation: 'STRONG CONSIDER',
-    spotifyFollowers: 1567,
-    spotifyPopularity: 28,
-    estimatedDraw: '150-280',
-    keyStrengths: 'Growing fanbase, strong social media presence',
-    concerns: 'Newer act, less proven live experience',
-    bookingStatus: 'New',
-    lastUpdated: '2024-08-01',
-    recentActivity: 'New single released June 2024',
-    industryBuzz: 'Rising popularity on streaming platforms'
-  },
-  {
-    id: '3',
-    name: 'Tyler Halverson',
-    overallScore: 72,
-    recommendation: 'MAYBE',
-    spotifyFollowers: 945,
-    spotifyPopularity: 22,
-    estimatedDraw: '100-200',
-    keyStrengths: 'Authentic sound, dedicated core fanbase',
-    concerns: 'Limited reach, inconsistent activity',
-    bookingStatus: 'New',
-    lastUpdated: '2024-08-01',
-    recentActivity: 'Sporadic releases, local gigs',
-    industryBuzz: 'Minimal press coverage'
-  }
-]
-
 export default function BandDashboard() {
-  const [bands, setBands] = useState<Band[]>(mockBands)
-  const [filteredBands, setFilteredBands] = useState<Band[]>(mockBands)
+  const [bands, setBands] = useState<Band[]>([])
+  const [filteredBands, setFilteredBands] = useState<Band[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRecommendation, setSelectedRecommendation] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'score' | 'name' | 'followers'>('score')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
+  // Webhook URLs
+  const RETRIEVE_DATA_WEBHOOK = 'https://thayneautomations.app.n8n.cloud/webhook/The-Cowboy-Saloon-Retrieve-Data'
+  const REFRESH_DATA_WEBHOOK = 'https://thayneautomations.app.n8n.cloud/webhook/The-Cowboy-Saloon-refresh-data'
+
+  // Transform Airtable data to our Band interface
+  const transformAirtableData = (airtableRecords: any[]): Band[] => {
+    return airtableRecords.map((record: any) => ({
+      id: record.id || record.recordId || Math.random().toString(36),
+      name: record['Band Name'] || record.bandName || 'Unknown',
+      overallScore: record['Overall Booking Score'] || record.overallScore || 0,
+      recommendation: record['Recommendation Level'] || record.recommendation || 'MAYBE',
+      spotifyFollowers: record['Spotify Followers'] || record.spotifyFollowers || 0,
+      spotifyPopularity: record['Spotify Popularity Score'] || record.spotifyPopularity || 0,
+      estimatedDraw: record['Estimated Audience Draw'] || record.estimatedDraw || 'Unknown',
+      keyStrengths: extractKeyStrengths(record['AI Analysis Notes'] || record.aiAnalysisNotes || ''),
+      concerns: extractConcerns(record['AI Analysis Notes'] || record.aiAnalysisNotes || ''),
+      bookingStatus: record['Booking Status'] || record.bookingStatus || 'Not Contacted',
+      spotifyUrl: record['Spotify Profile URL'] || record.spotifyUrl || '',
+      lastUpdated: record['Last Updated'] || record.lastUpdated || new Date().toISOString(),
+      dateAnalyzed: record['Date Analyzed'] || record.dateAnalyzed || new Date().toISOString(),
+      confidenceLevel: record['Draw Confidence Level'] || record.confidenceLevel || 'Medium',
+      aiAnalysisNotes: record['AI Analysis Notes'] || record.aiAnalysisNotes || ''
+    }))
+  }
+
+  // Helper functions to extract key strengths and concerns from AI notes
+  const extractKeyStrengths = (notes: string): string => {
+    // Try to extract positive aspects from the AI analysis notes
+    if (notes.includes('solid momentum') || notes.includes('good follower') || notes.includes('strong')) {
+      return notes.split('.')[0] + '.'
+    }
+    return 'Analysis pending'
+  }
+
+  const extractConcerns = (notes: string): string => {
+    // Try to extract concerns from the AI analysis notes
+    if (notes.includes('lack of') || notes.includes('limited') || notes.includes('concern')) {
+      const sentences = notes.split('.')
+      const concernSentence = sentences.find(s => 
+        s.toLowerCase().includes('lack of') || 
+        s.toLowerCase().includes('limited') || 
+        s.toLowerCase().includes('concern')
+      )
+      return concernSentence ? concernSentence.trim() + '.' : ''
+    }
+    return ''
+  }
+
+  // Fetch initial data from Airtable
+  const fetchBandData = async () => {
+    try {
+      setError(null)
+      const response = await fetch(RETRIEVE_DATA_WEBHOOK, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'retrieve',
+          timestamp: new Date().toISOString()
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      // Handle different possible response structures
+      let records = []
+      if (Array.isArray(data)) {
+        records = data
+      } else if (data.records && Array.isArray(data.records)) {
+        records = data.records
+      } else if (data.data && Array.isArray(data.data)) {
+        records = data.data
+      } else {
+        console.warn('Unexpected data structure:', data)
+        records = []
+      }
+
+      const transformedBands = transformAirtableData(records)
+      setBands(transformedBands)
+      
+      // Set last refresh time to the most recent analysis date
+      if (transformedBands.length > 0) {
+        const mostRecent = transformedBands.reduce((latest, band) => {
+          const bandDate = new Date(band.dateAnalyzed)
+          const latestDate = new Date(latest)
+          return bandDate > latestDate ? band.dateAnalyzed : latest
+        }, transformedBands[0].dateAnalyzed)
+        setLastRefresh(new Date(mostRecent))
+      }
+
+    } catch (error) {
+      console.error('Error fetching band data:', error)
+      setError('Failed to load band data. Please try refreshing.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Refresh data - trigger the full analysis workflow
+  const refreshBandData = async () => {
+    try {
+      setIsRefreshing(true)
+      setError(null)
+
+      const response = await fetch(REFRESH_DATA_WEBHOOK, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'refresh',
+          timestamp: new Date().toISOString(),
+          lastRefresh: lastRefresh?.toISOString()
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      
+      // After refresh completes, fetch the updated data
+      await fetchBandData()
+      setLastRefresh(new Date())
+      
+      // Show success message if new bands were found
+      if (result.newBandsFound && result.newBandsFound > 0) {
+        // You could add a toast notification here
+        console.log(`Refresh complete! Found ${result.newBandsFound} new bands.`)
+      }
+
+    } catch (error) {
+      console.error('Error refreshing data:', error)
+      setError('Failed to refresh data. Please try again.')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  // Load data on component mount
+  useEffect(() => {
+    fetchBandData()
+  }, [])
+
+  // Filter and sort bands
   useEffect(() => {
     let filtered = bands.filter(band => {
       const matchesSearch = band.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -111,21 +218,49 @@ export default function BandDashboard() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'Booked': return <CheckCircleIcon className="h-5 w-5 text-green-500" />
-      case 'Declined': return <XCircleIcon className="h-5 w-5 text-red-500" />
+      case 'Passed': return <XCircleIcon className="h-5 w-5 text-red-500" />
       case 'Negotiating': return <ClockIcon className="h-5 w-5 text-yellow-500" />
       default: return <ClockIcon className="h-5 w-5 text-gray-400" />
     }
   }
 
-  const updateBookingStatus = (bandId: string, newStatus: Band['bookingStatus']) => {
+  const updateBookingStatus = async (bandId: string, newStatus: Band['bookingStatus']) => {
+    // Optimistically update the UI
     setBands(bands.map(band => 
       band.id === bandId ? { ...band, bookingStatus: newStatus } : band
     ))
+
+    // TODO: You could add an API call here to update the status in Airtable
+    // For now, this only updates the local state
+  }
+
+  const formatTimeAgo = (date: Date): string => {
+    const now = new Date()
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
+    
+    if (diffInHours < 1) return 'Less than an hour ago'
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`
+    
+    const diffInDays = Math.floor(diffInHours / 24)
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
+    
+    return date.toLocaleDateString()
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <ArrowPathIcon className="mx-auto h-12 w-12 text-orange-600 animate-spin" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">Loading band data...</h3>
+          <p className="mt-1 text-sm text-gray-500">Fetching latest information from database</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="test-class">TEST - This should be red with white text</div>
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -135,14 +270,64 @@ export default function BandDashboard() {
               <h1 className="text-2xl font-bold text-gray-900">Band Manager</h1>
               <span className="text-sm text-gray-500">The Cowboy Saloon</span>
             </div>
-            <div className="text-sm text-gray-500">
-              Last updated: {new Date().toLocaleDateString()}
+            
+            <div className="flex items-center space-x-4">
+              {/* Last Refresh Info */}
+              <div className="text-sm text-gray-500">
+                {lastRefresh ? (
+                  <span>Last refresh: {formatTimeAgo(lastRefresh)}</span>
+                ) : (
+                  <span>No refresh data available</span>
+                )}
+              </div>
+              
+              {/* Refresh Button */}
+              <button
+                onClick={refreshBandData}
+                disabled={isRefreshing}
+                className={`inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white ${
+                  isRefreshing 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500'
+                } transition-colors`}
+              >
+                <ArrowPathIcon className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+              </button>
             </div>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+            <div className="flex">
+              <XCircleIcon className="h-5 w-5 text-red-400" />
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <div className="mt-2 text-sm text-red-700">{error}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Refresh Status */}
+        {isRefreshing && (
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+            <div className="flex">
+              <ArrowPathIcon className="h-5 w-5 text-blue-400 animate-spin" />
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800">Refreshing Data</h3>
+                <div className="mt-2 text-sm text-blue-700">
+                  Scanning emails, analyzing new bands, and updating database...
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -178,11 +363,11 @@ export default function BandDashboard() {
               onChange={(e) => setSelectedStatus(e.target.value)}
             >
               <option value="all">All Statuses</option>
-              <option value="New">New</option>
+              <option value="Not Contacted">Not Contacted</option>
               <option value="Contacted">Contacted</option>
               <option value="Negotiating">Negotiating</option>
               <option value="Booked">Booked</option>
-              <option value="Declined">Declined</option>
+              <option value="Passed">Passed</option>
             </select>
 
             {/* Sort */}
@@ -244,18 +429,12 @@ export default function BandDashboard() {
                   </div>
                 </div>
 
-                {/* Analysis */}
-                <div className="space-y-3 mb-4">
-                  <div>
-                    <div className="text-sm font-medium text-green-700 mb-1">Key Strengths</div>
-                    <div className="text-sm text-gray-600">{band.keyStrengths}</div>
+                {/* AI Analysis Notes */}
+                <div className="mb-4">
+                  <div className="text-sm font-medium text-gray-700 mb-1">AI Analysis</div>
+                  <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+                    {band.aiAnalysisNotes || 'No analysis available'}
                   </div>
-                  {band.concerns && (
-                    <div>
-                      <div className="text-sm font-medium text-yellow-700 mb-1">Concerns</div>
-                      <div className="text-sm text-gray-600">{band.concerns}</div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Actions */}
@@ -272,6 +451,9 @@ export default function BandDashboard() {
                         Listen
                       </a>
                     )}
+                    <span className="text-xs text-gray-400">
+                      Confidence: {band.confidenceLevel}
+                    </span>
                   </div>
                   
                   <select
@@ -279,11 +461,11 @@ export default function BandDashboard() {
                     onChange={(e) => updateBookingStatus(band.id, e.target.value as Band['bookingStatus'])}
                     className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   >
-                    <option value="New">New</option>
+                    <option value="Not Contacted">Not Contacted</option>
                     <option value="Contacted">Contacted</option>
                     <option value="Negotiating">Negotiating</option>
                     <option value="Booked">Booked</option>
-                    <option value="Declined">Declined</option>
+                    <option value="Passed">Passed</option>
                   </select>
                 </div>
               </div>
@@ -295,7 +477,12 @@ export default function BandDashboard() {
           <div className="text-center py-12">
             <SpeakerWaveIcon className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No bands found</h3>
-            <p className="mt-1 text-sm text-gray-500">Try adjusting your search or filters.</p>
+            <p className="mt-1 text-sm text-gray-500">
+              {bands.length === 0 
+                ? "No band data available. Try clicking 'Refresh Data' to scan for new bands."
+                : "Try adjusting your search or filters."
+              }
+            </p>
           </div>
         )}
       </div>
