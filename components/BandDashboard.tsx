@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MagnifyingGlassIcon, FunnelIcon, SpeakerWaveIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, FunnelIcon, SpeakerWaveIcon, ArrowPathIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline'
 import { CheckCircleIcon, XCircleIcon, ClockIcon, StarIcon } from '@heroicons/react/24/solid'
 
 interface Band {
@@ -22,12 +22,53 @@ interface Band {
   aiAnalysisNotes: string
 }
 
+interface RankingFocus {
+  value: string
+  label: string
+  description: string
+  icon: string
+}
+
+const rankingFocusOptions: RankingFocus[] = [
+  { 
+    value: 'hidden_gems', 
+    label: 'Hidden Gems', 
+    description: 'Emerging artists before they blow up',
+    icon: '💎'
+  },
+  { 
+    value: 'genre_fit', 
+    label: 'Best Genre Fit', 
+    description: 'Country/Western artists that match our vibe',
+    icon: '🤠'
+  },
+  { 
+    value: 'proven_draw', 
+    label: 'Proven Draw', 
+    description: 'Established acts with ticket-selling history',
+    icon: '🎯'
+  },
+  { 
+    value: 'local_buzz', 
+    label: 'Local Buzz', 
+    description: 'Regional artists with Wyoming connections',
+    icon: '🏔️'
+  },
+  { 
+    value: 'rising_stars', 
+    label: 'Rising Stars', 
+    description: 'Artists showing explosive growth',
+    icon: '🚀'
+  }
+]
+
 export default function BandDashboard() {
   const [bands, setBands] = useState<Band[]>([])
   const [filteredBands, setFilteredBands] = useState<Band[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRecommendation, setSelectedRecommendation] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
+  const [rankingFocus, setRankingFocus] = useState<string>('hidden_gems')
   const [sortBy, setSortBy] = useState<'score' | 'name' | 'followers'>('score')
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -145,7 +186,8 @@ export default function BandDashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          lastRefresh: lastRefresh?.toISOString()
+          lastRefresh: lastRefresh?.toISOString(),
+          rankingFocus: rankingFocus // Send current ranking focus to backend
         })
       })
 
@@ -241,6 +283,10 @@ export default function BandDashboard() {
     return date.toLocaleDateString()
   }
 
+  const getCurrentFocusOption = () => {
+    return rankingFocusOptions.find(option => option.value === rankingFocus) || rankingFocusOptions[0]
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -266,6 +312,14 @@ export default function BandDashboard() {
             </div>
             
             <div className="flex items-center space-x-4">
+              {/* Current Ranking Focus Display */}
+              <div className="flex items-center space-x-2 px-3 py-1 bg-orange-50 rounded-md border border-orange-200">
+                <AdjustmentsHorizontalIcon className="h-4 w-4 text-orange-600" />
+                <span className="text-sm font-medium text-orange-700">
+                  {getCurrentFocusOption().icon} {getCurrentFocusOption().label}
+                </span>
+              </div>
+              
               {/* Last Refresh Info */}
               <div className="text-sm text-gray-500">
                 {lastRefresh ? (
@@ -315,12 +369,48 @@ export default function BandDashboard() {
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-blue-800">Refreshing Data</h3>
                 <div className="mt-2 text-sm text-blue-700">
-                  Scanning emails, analyzing new bands, and updating database...
+                  Scanning emails, analyzing new bands with "{getCurrentFocusOption().label}" focus, and updating database...
                 </div>
               </div>
             </div>
           </div>
         )}
+
+        {/* Ranking Focus Selector */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+          <div className="flex items-center space-x-3 mb-4">
+            <AdjustmentsHorizontalIcon className="h-5 w-5 text-gray-600" />
+            <h3 className="text-lg font-medium text-gray-900">Ranking Focus</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            {rankingFocusOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setRankingFocus(option.value)}
+                className={`p-4 rounded-lg border-2 text-left transition-all hover:shadow-md ${
+                  rankingFocus === option.value
+                    ? 'border-orange-500 bg-orange-50 shadow-md'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="text-lg">{option.icon}</span>
+                  <span className={`font-medium text-sm ${
+                    rankingFocus === option.value ? 'text-orange-700' : 'text-gray-900'
+                  }`}>
+                    {option.label}
+                  </span>
+                </div>
+                <p className={`text-xs ${
+                  rankingFocus === option.value ? 'text-orange-600' : 'text-gray-500'
+                }`}>
+                  {option.description}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
@@ -380,7 +470,7 @@ export default function BandDashboard() {
         {/* Results Summary */}
         <div className="mb-6">
           <p className="text-gray-600">
-            Showing {filteredBands.length} of {bands.length} bands
+            Showing {filteredBands.length} of {bands.length} bands ranked by <strong>{getCurrentFocusOption().label}</strong> criteria
           </p>
         </div>
 
