@@ -8,6 +8,12 @@ interface Band {
   id: string
   name: string
   overallScore: number
+  // Raw ranking metrics (0-100)
+  growthMomentumScore: number
+  fanEngagementScore: number
+  digitalPopularityScore: number
+  livePotentialScore: number
+  venueFitScore: number
   recommendation: 'BOOK SOON' | 'STRONG CONSIDER' | 'MAYBE' | 'PASS'
   spotifyFollowers: number
   spotifyPopularity: number
@@ -57,10 +63,76 @@ const rankingFocusOptions: RankingFocus[] = [
   { 
     value: 'rising_stars', 
     label: 'Rising Stars', 
+  {
+    value: 'rising_stars',
+    label: 'Rising Stars',
     description: 'Artists showing explosive growth',
     icon: '🚀'
   }
 ]
+
+interface RankingWeights {
+  growthMomentum: number
+  fanEngagement: number
+  digitalPopularity: number
+  livePotential: number
+  venueFit: number
+}
+
+// Weighting matrices for each ranking focus. Values should total 1.0.
+const rankingWeights: Record<string, RankingWeights> = {
+  hidden_gems: {
+    growthMomentum: 0.3,
+    fanEngagement: 0.2,
+    digitalPopularity: 0.2,
+    livePotential: 0.1,
+    venueFit: 0.2
+  },
+  genre_fit: {
+    growthMomentum: 0.1,
+    fanEngagement: 0.15,
+    digitalPopularity: 0.1,
+    livePotential: 0.15,
+    venueFit: 0.5
+  },
+  proven_draw: {
+    growthMomentum: 0.1,
+    fanEngagement: 0.15,
+    digitalPopularity: 0.3,
+    livePotential: 0.35,
+    venueFit: 0.1
+  },
+  local_buzz: {
+    growthMomentum: 0.15,
+    fanEngagement: 0.25,
+    digitalPopularity: 0.1,
+    livePotential: 0.15,
+    venueFit: 0.35
+  },
+  rising_stars: {
+    growthMomentum: 0.35,
+    fanEngagement: 0.2,
+    digitalPopularity: 0.25,
+    livePotential: 0.1,
+    venueFit: 0.1
+  }
+}
+
+const applyWeightsToBands = (bands: Band[], focus: string): Band[] => {
+  const weights = rankingWeights[focus]
+  if (!weights) return bands
+
+  return bands.map((band) => ({
+    ...band,
+    overallScore: Math.round(
+      band.growthMomentumScore * weights.growthMomentum +
+      band.fanEngagementScore * weights.fanEngagement +
+      band.digitalPopularityScore * weights.digitalPopularity +
+      band.livePotentialScore * weights.livePotential +
+      band.venueFitScore * weights.venueFit
+    )
+  }))
+}
 
 export default function BandDashboard() {
   const [bands, setBands] = useState<Band[]>([])
@@ -85,6 +157,11 @@ export default function BandDashboard() {
       id: record.id || record.recordId || Math.random().toString(36),
       name: record['Band Name'] || record.bandName || 'Unknown',
       overallScore: record['Overall Booking Score'] || record.overallScore || 0,
+      growthMomentumScore: record['Growth Momentum Score'] || record.growthMomentumScore || 0,
+      fanEngagementScore: record['Fan Engagement Score'] || record.fanEngagementScore || 0,
+      digitalPopularityScore: record['Digital Popularity Score'] || record['Digital Popularity'] || record.digitalPopularityScore || 0,
+      livePotentialScore: record['Live Potential Score'] || record.livePotentialScore || 0,
+      venueFitScore: record['Venue Fit Score'] || record.venueFitScore || 0,
       recommendation: record['Recommendation Level'] || record.recommendation || 'MAYBE',
       spotifyFollowers: record['Spotify Followers'] || record.spotifyFollowers || 0,
       spotifyPopularity: record['Spotify Popularity Score'] || record.spotifyPopularity || 0,
@@ -110,65 +187,7 @@ export default function BandDashboard() {
   }
 
   const extractConcerns = (notes: string): string => {
-    // Try to extract concerns from the AI analysis notes
-    if (notes.includes('lack of') || notes.includes('limited') || notes.includes('concern')) {
-      const sentences = notes.split('.')
-      const concernSentence = sentences.find(s => 
-        s.toLowerCase().includes('lack of') || 
-        s.toLowerCase().includes('limited') || 
-        s.toLowerCase().includes('concern')
-      )
-      return concernSentence ? concernSentence.trim() + '.' : ''
-    }
-    return ''
-  }
-
-  // Enhanced fetchBandData with cache busting
-const fetchBandData = async () => {
-  const requestId = Math.random().toString(36).substring(7)
-  console.log(`🚀 [${requestId}] fetchBandData called`)
-  
-  try {
-    setError(null)
-    setIsLoading(true)
-    
-    // Add cache busting query parameter
-    const cacheBuster = `?cb=${Date.now()}&rid=${requestId}`
-    const apiUrl = `${RETRIEVE_DATA_API}${cacheBuster}`
-    
-    console.log(`📡 [${requestId}] Making API call to:`, apiUrl)
-    
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
-      },
-      // Force no caching
-      cache: 'no-store'
-    })
-
-    console.log(`📨 [${requestId}] Response status:`, response.status)
-    console.log(`📨 [${requestId}] Response ok:`, response.ok)
-    console.log(`📨 [${requestId}] Response headers:`, Object.fromEntries(response.headers.entries()))
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`❌ [${requestId}] API Error Response:`, errorText)
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
-    }
-
-    const data = await response.json()
-    console.log(`📦 [${requestId}] Raw API Response:`, data)
-    console.log(`📦 [${requestId}] Data type:`, typeof data)
-    console.log(`📦 [${requestId}] Is Array:`, Array.isArray(data))
-    
-    // Check if we got the request ID back (proves it's not cached)
-    if (data.requestId || response.headers.get('X-Request-ID')) {
-      console.log(`✅ [${requestId}] Fresh response confirmed - Request ID:`, data.requestId || response.headers.get('X-Request-ID'))
-    } else {
-      console.warn(`⚠️ [${requestId}] No request ID found - might be cached response`)
+@@ -172,60 +246,62 @@ const fetchBandData = async () => {
     }
     
     // Handle different possible response structures
@@ -197,13 +216,21 @@ const fetchBandData = async () => {
     
     setBands(transformedBands)
     
+
+    // Apply current ranking focus weights
+    const weightedBands = applyWeightsToBands(transformedBands, rankingFocus)
+    setBands(weightedBands)
+
     // Set last refresh time to the most recent analysis date
     if (transformedBands.length > 0) {
       const mostRecent = transformedBands.reduce((latest, band) => {
+    if (weightedBands.length > 0) {
+      const mostRecent = weightedBands.reduce((latest, band) => {
         const bandDate = new Date(band.dateAnalyzed)
         const latestDate = new Date(latest)
         return bandDate > latestDate ? band.dateAnalyzed : latest
       }, transformedBands[0].dateAnalyzed)
+      }, weightedBands[0].dateAnalyzed)
       setLastRefresh(new Date(mostRecent))
       console.log(`⏰ [${requestId}] Last refresh set to:`, mostRecent)
     }
@@ -229,17 +256,7 @@ const fetchBandData = async () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          lastRefresh: lastRefresh?.toISOString(),
-          rankingFocus: rankingFocus // Send current ranking focus to backend
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const result = await response.json()
+@@ -243,50 +319,55 @@ const fetchBandData = async () => {
       
       // After refresh completes, fetch the updated data
       await fetchBandData()
@@ -264,6 +281,11 @@ const fetchBandData = async () => {
     console.log('🎯 Component mounted, calling fetchBandData')
     fetchBandData()
   }, [])
+
+  // Recalculate overall scores when ranking focus changes
+  useEffect(() => {
+    setBands(prev => applyWeightsToBands(prev, rankingFocus))
+  }, [rankingFocus])
 
   // Filter and sort bands
   useEffect(() => {
@@ -290,249 +312,7 @@ const fetchBandData = async () => {
     switch (rec) {
       case 'BOOK SOON': return 'bg-green-100 text-green-800 border-green-200'
       case 'STRONG CONSIDER': return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'MAYBE': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      case 'PASS': return 'bg-red-100 text-red-800 border-red-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Booked': return <CheckCircleIcon className="h-5 w-5 text-green-500" />
-      case 'Passed': return <XCircleIcon className="h-5 w-5 text-red-500" />
-      case 'Negotiating': return <ClockIcon className="h-5 w-5 text-yellow-500" />
-      default: return <ClockIcon className="h-5 w-5 text-gray-400" />
-    }
-  }
-
-  const updateBookingStatus = async (bandId: string, newStatus: Band['bookingStatus']) => {
-    // Optimistically update the UI
-    setBands(bands.map(band => 
-      band.id === bandId ? { ...band, bookingStatus: newStatus } : band
-    ))
-
-    // TODO: You could add an API call here to update the status in Airtable
-    // For now, this only updates the local state
-  }
-
-  const formatTimeAgo = (date: Date): string => {
-    const now = new Date()
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
-    
-    if (diffInHours < 1) return 'Less than an hour ago'
-    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`
-    
-    const diffInDays = Math.floor(diffInHours / 24)
-    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
-    
-    return date.toLocaleDateString()
-  }
-
-  const getCurrentFocusOption = () => {
-    return rankingFocusOptions.find(option => option.value === rankingFocus) || rankingFocusOptions[0]
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <ArrowPathIcon className="mx-auto h-12 w-12 text-orange-600 animate-spin" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">Loading band data...</h3>
-          <p className="mt-1 text-sm text-gray-500">Fetching latest information from database</p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <SpeakerWaveIcon className="h-8 w-8 text-orange-600" />
-              <h1 className="text-2xl font-bold text-gray-900">Band Manager</h1>
-              <span className="text-sm text-gray-500">The Cowboy Saloon</span>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              {/* Current Ranking Focus Display */}
-              <div className="flex items-center space-x-2 px-3 py-1 bg-orange-50 rounded-md border border-orange-200">
-                <AdjustmentsHorizontalIcon className="h-4 w-4 text-orange-600" />
-                <span className="text-sm font-medium text-orange-700">
-                  {getCurrentFocusOption().icon} {getCurrentFocusOption().label}
-                </span>
-              </div>
-              
-              {/* Last Refresh Info */}
-              <div className="text-sm text-gray-500">
-                {lastRefresh ? (
-                  <span>Last refresh: {formatTimeAgo(lastRefresh)}</span>
-                ) : (
-                  <span>No refresh data available</span>
-                )}
-              </div>
-              
-              {/* Refresh Button */}
-              <button
-                onClick={refreshBandData}
-                disabled={isRefreshing}
-                className={`inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white ${
-                  isRefreshing 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500'
-                } transition-colors`}
-              >
-                <ArrowPathIcon className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
-            <div className="flex">
-              <XCircleIcon className="h-5 w-5 text-red-400" />
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Error</h3>
-                <div className="mt-2 text-sm text-red-700">{error}</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Refresh Status */}
-        {isRefreshing && (
-          <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
-            <div className="flex">
-              <ArrowPathIcon className="h-5 w-5 text-blue-400 animate-spin" />
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">Refreshing Data</h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  Scanning emails, analyzing new bands with "{getCurrentFocusOption().label}" focus, and updating database...
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Ranking Focus Selector */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <div className="flex items-center space-x-3 mb-4">
-            <AdjustmentsHorizontalIcon className="h-5 w-5 text-gray-600" />
-            <h3 className="text-lg font-medium text-gray-900">Ranking Focus</h3>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {rankingFocusOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => setRankingFocus(option.value)}
-                className={`p-4 rounded-lg border-2 text-left transition-all hover:shadow-md ${
-                  rankingFocus === option.value
-                    ? 'border-orange-500 bg-orange-50 shadow-md'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className="text-lg">{option.icon}</span>
-                  <span className={`font-medium text-sm ${
-                    rankingFocus === option.value ? 'text-orange-700' : 'text-gray-900'
-                  }`}>
-                    {option.label}
-                  </span>
-                </div>
-                <p className={`text-xs ${
-                  rankingFocus === option.value ? 'text-orange-600' : 'text-gray-500'
-                }`}>
-                  {option.description}
-                </p>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search */}
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search bands..."
-                className="pl-10 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            {/* Recommendation Filter */}
-            <select
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              value={selectedRecommendation}
-              onChange={(e) => setSelectedRecommendation(e.target.value)}
-            >
-              <option value="all">All Recommendations</option>
-              <option value="BOOK SOON">Book Soon</option>
-              <option value="STRONG CONSIDER">Strong Consider</option>
-              <option value="MAYBE">Maybe</option>
-              <option value="PASS">Pass</option>
-            </select>
-
-            {/* Status Filter */}
-            <select
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              <option value="all">All Statuses</option>
-              <option value="Not Contacted">Not Contacted</option>
-              <option value="Contacted">Contacted</option>
-              <option value="Negotiating">Negotiating</option>
-              <option value="Booked">Booked</option>
-              <option value="Passed">Passed</option>
-            </select>
-
-            {/* Sort */}
-            <select
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            >
-              <option value="score">Sort by Score</option>
-              <option value="name">Sort by Name</option>
-              <option value="followers">Sort by Followers</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Results Summary */}
-        <div className="mb-6">
-          <p className="text-gray-600">
-            Showing {filteredBands.length} of {bands.length} bands ranked by <strong>{getCurrentFocusOption().label}</strong> criteria
-          </p>
-        </div>
-
-        {/* Band Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredBands.map((band) => (
-            <div key={band.id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
-              <div className="p-6">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-1">{band.name}</h3>
-                    <div className="flex items-center space-x-2">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getRecommendationColor(band.recommendation)}`}>
-                        {band.recommendation}
-                      </span>
-                      {getStatusIcon(band.bookingStatus)}
+@@ -536,50 +617,74 @@ const fetchBandData = async () => {
                       <span className="text-sm text-gray-500">{band.bookingStatus}</span>
                     </div>
                   </div>
@@ -555,6 +335,30 @@ const fetchBandData = async () => {
                   <div className="text-center">
                     <div className="text-lg font-semibold text-gray-900">{band.estimatedDraw}</div>
                     <div className="text-xs text-gray-500">Est. Draw</div>
+                  </div>
+                </div>
+
+                {/* Ranking Scores */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-4 p-3 bg-gray-50 rounded-md">
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-gray-900">{band.growthMomentumScore}</div>
+                    <div className="text-xs text-gray-500">Growth</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-gray-900">{band.fanEngagementScore}</div>
+                    <div className="text-xs text-gray-500">Engagement</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-gray-900">{band.digitalPopularityScore}</div>
+                    <div className="text-xs text-gray-500">Digital</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-gray-900">{band.livePotentialScore}</div>
+                    <div className="text-xs text-gray-500">Live</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-gray-900">{band.venueFitScore}</div>
+                    <div className="text-xs text-gray-500">Venue Fit</div>
                   </div>
                 </div>
 
