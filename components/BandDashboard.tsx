@@ -123,10 +123,15 @@ export default function BandDashboard() {
     return ''
   }
 
-  // Fetch initial data from Airtable
+  // Enhanced fetchBandData with better debugging
   const fetchBandData = async () => {
+    console.log('🚀 fetchBandData called')
     try {
       setError(null)
+      setIsLoading(true)
+      
+      console.log('📡 Making API call to:', RETRIEVE_DATA_API)
+      
       const response = await fetch(RETRIEVE_DATA_API, {
         method: 'GET',
         headers: {
@@ -134,26 +139,44 @@ export default function BandDashboard() {
         }
       })
 
+      console.log('📨 Response status:', response.status)
+      console.log('📨 Response ok:', response.ok)
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorText = await response.text()
+        console.error('❌ API Error Response:', errorText)
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
       }
 
       const data = await response.json()
+      console.log('📦 Raw API Response:', data)
+      console.log('📦 Data type:', typeof data)
+      console.log('📦 Is Array:', Array.isArray(data))
       
       // Handle different possible response structures
       let records = []
       if (Array.isArray(data)) {
         records = data
+        console.log('✅ Data is direct array')
       } else if (data.records && Array.isArray(data.records)) {
         records = data.records
+        console.log('✅ Data has records property')
       } else if (data.data && Array.isArray(data.data)) {
         records = data.data
+        console.log('✅ Data has data property')
       } else {
-        console.warn('Unexpected data structure:', data)
+        console.warn('⚠️ Unexpected data structure:', data)
+        console.log('🔍 Available keys:', Object.keys(data))
         records = []
       }
 
+      console.log('📊 Records found:', records.length)
+      console.log('📊 First record sample:', records[0])
+
       const transformedBands = transformAirtableData(records)
+      console.log('🔄 Transformed bands:', transformedBands.length)
+      console.log('🔄 First transformed band:', transformedBands[0])
+      
       setBands(transformedBands)
       
       // Set last refresh time to the most recent analysis date
@@ -164,13 +187,16 @@ export default function BandDashboard() {
           return bandDate > latestDate ? band.dateAnalyzed : latest
         }, transformedBands[0].dateAnalyzed)
         setLastRefresh(new Date(mostRecent))
+        console.log('⏰ Last refresh set to:', mostRecent)
       }
 
     } catch (error) {
-      console.error('Error fetching band data:', error)
-      setError('Failed to load band data. Please try refreshing.')
+      console.error('💥 Error in fetchBandData:', error)
+      console.error('💥 Error stack:', (error as Error).stack)
+      setError(`Failed to load band data: ${(error as Error).message}`)
     } finally {
       setIsLoading(false)
+      console.log('✅ fetchBandData completed')
     }
   }
 
@@ -217,6 +243,7 @@ export default function BandDashboard() {
 
   // Load data on component mount
   useEffect(() => {
+    console.log('🎯 Component mounted, calling fetchBandData')
     fetchBandData()
   }, [])
 
