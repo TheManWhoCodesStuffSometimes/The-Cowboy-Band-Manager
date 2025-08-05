@@ -1,4 +1,3 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
 diff --git a/components/BandDashboard.tsx b/components/BandDashboard.tsx
 index 6029e8801cec342ba3c37b763a374fe0db106408..b19d1c98f0d2a2a5d03ee77dd4d100d77e444276 100644
 --- a/components/BandDashboard.tsx
@@ -379,6 +378,7 @@ index 6029e8801cec342ba3c37b763a374fe0db106408..b19d1c98f0d2a2a5d03ee77dd4d100d7
 +                    <div className="text-xs text-gray-500">Venue Fit</div>
 +                  </div>
 +                </div>
++
 
                 {/* AI Analysis Notes */}
                 <div className="mb-4">
