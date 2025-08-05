@@ -123,82 +123,100 @@ export default function BandDashboard() {
     return ''
   }
 
-  // Enhanced fetchBandData with better debugging
-  const fetchBandData = async () => {
-    console.log('🚀 fetchBandData called')
-    try {
-      setError(null)
-      setIsLoading(true)
-      
-      console.log('📡 Making API call to:', RETRIEVE_DATA_API)
-      
-      const response = await fetch(RETRIEVE_DATA_API, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      })
+  // Enhanced fetchBandData with cache busting
+const fetchBandData = async () => {
+  const requestId = Math.random().toString(36).substring(7)
+  console.log(`🚀 [${requestId}] fetchBandData called`)
+  
+  try {
+    setError(null)
+    setIsLoading(true)
+    
+    // Add cache busting query parameter
+    const cacheBuster = `?cb=${Date.now()}&rid=${requestId}`
+    const apiUrl = `${RETRIEVE_DATA_API}${cacheBuster}`
+    
+    console.log(`📡 [${requestId}] Making API call to:`, apiUrl)
+    
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      },
+      // Force no caching
+      cache: 'no-store'
+    })
 
-      console.log('📨 Response status:', response.status)
-      console.log('📨 Response ok:', response.ok)
+    console.log(`📨 [${requestId}] Response status:`, response.status)
+    console.log(`📨 [${requestId}] Response ok:`, response.ok)
+    console.log(`📨 [${requestId}] Response headers:`, Object.fromEntries(response.headers.entries()))
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('❌ API Error Response:', errorText)
-        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
-      }
-
-      const data = await response.json()
-      console.log('📦 Raw API Response:', data)
-      console.log('📦 Data type:', typeof data)
-      console.log('📦 Is Array:', Array.isArray(data))
-      
-      // Handle different possible response structures
-      let records = []
-      if (Array.isArray(data)) {
-        records = data
-        console.log('✅ Data is direct array')
-      } else if (data.records && Array.isArray(data.records)) {
-        records = data.records
-        console.log('✅ Data has records property')
-      } else if (data.data && Array.isArray(data.data)) {
-        records = data.data
-        console.log('✅ Data has data property')
-      } else {
-        console.warn('⚠️ Unexpected data structure:', data)
-        console.log('🔍 Available keys:', Object.keys(data))
-        records = []
-      }
-
-      console.log('📊 Records found:', records.length)
-      console.log('📊 First record sample:', records[0])
-
-      const transformedBands = transformAirtableData(records)
-      console.log('🔄 Transformed bands:', transformedBands.length)
-      console.log('🔄 First transformed band:', transformedBands[0])
-      
-      setBands(transformedBands)
-      
-      // Set last refresh time to the most recent analysis date
-      if (transformedBands.length > 0) {
-        const mostRecent = transformedBands.reduce((latest, band) => {
-          const bandDate = new Date(band.dateAnalyzed)
-          const latestDate = new Date(latest)
-          return bandDate > latestDate ? band.dateAnalyzed : latest
-        }, transformedBands[0].dateAnalyzed)
-        setLastRefresh(new Date(mostRecent))
-        console.log('⏰ Last refresh set to:', mostRecent)
-      }
-
-    } catch (error) {
-      console.error('💥 Error in fetchBandData:', error)
-      console.error('💥 Error stack:', (error as Error).stack)
-      setError(`Failed to load band data: ${(error as Error).message}`)
-    } finally {
-      setIsLoading(false)
-      console.log('✅ fetchBandData completed')
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`❌ [${requestId}] API Error Response:`, errorText)
+      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`)
     }
+
+    const data = await response.json()
+    console.log(`📦 [${requestId}] Raw API Response:`, data)
+    console.log(`📦 [${requestId}] Data type:`, typeof data)
+    console.log(`📦 [${requestId}] Is Array:`, Array.isArray(data))
+    
+    // Check if we got the request ID back (proves it's not cached)
+    if (data.requestId || response.headers.get('X-Request-ID')) {
+      console.log(`✅ [${requestId}] Fresh response confirmed - Request ID:`, data.requestId || response.headers.get('X-Request-ID'))
+    } else {
+      console.warn(`⚠️ [${requestId}] No request ID found - might be cached response`)
+    }
+    
+    // Handle different possible response structures
+    let records = []
+    if (Array.isArray(data)) {
+      records = data
+      console.log(`✅ [${requestId}] Data is direct array`)
+    } else if (data.records && Array.isArray(data.records)) {
+      records = data.records
+      console.log(`✅ [${requestId}] Data has records property`)
+    } else if (data.data && Array.isArray(data.data)) {
+      records = data.data
+      console.log(`✅ [${requestId}] Data has data property`)
+    } else {
+      console.warn(`⚠️ [${requestId}] Unexpected data structure:`, data)
+      console.log(`🔍 [${requestId}] Available keys:`, Object.keys(data))
+      records = []
+    }
+
+    console.log(`📊 [${requestId}] Records found:`, records.length)
+    console.log(`📊 [${requestId}] First record sample:`, records[0])
+
+    const transformedBands = transformAirtableData(records)
+    console.log(`🔄 [${requestId}] Transformed bands:`, transformedBands.length)
+    console.log(`🔄 [${requestId}] First transformed band:`, transformedBands[0])
+    
+    setBands(transformedBands)
+    
+    // Set last refresh time to the most recent analysis date
+    if (transformedBands.length > 0) {
+      const mostRecent = transformedBands.reduce((latest, band) => {
+        const bandDate = new Date(band.dateAnalyzed)
+        const latestDate = new Date(latest)
+        return bandDate > latestDate ? band.dateAnalyzed : latest
+      }, transformedBands[0].dateAnalyzed)
+      setLastRefresh(new Date(mostRecent))
+      console.log(`⏰ [${requestId}] Last refresh set to:`, mostRecent)
+    }
+
+  } catch (error) {
+    console.error(`💥 [${requestId}] Error in fetchBandData:`, error)
+    console.error(`💥 [${requestId}] Error stack:`, (error as Error).stack)
+    setError(`Failed to load band data: ${(error as Error).message}`)
+  } finally {
+    setIsLoading(false)
+    console.log(`✅ [${requestId}] fetchBandData completed`)
   }
+}
 
   // Refresh data - trigger the full analysis workflow
   const refreshBandData = async () => {
