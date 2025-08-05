@@ -154,34 +154,42 @@ export default function BandDashboard() {
   const RETRIEVE_DATA_API = '/api/bands'
   const REFRESH_DATA_API = '/api/bands/refresh'
 
+  // Helper function to safely extract values from complex Airtable objects
+  const safeExtractValue = (field: any, fallback: any = null) => {
+    if (field === null || field === undefined) return fallback
+    if (typeof field === 'object' && field.value !== undefined) return field.value || fallback
+    if (typeof field === 'object' && field.state === 'error') return fallback
+    return field
+  }
+
   // Transform Airtable data to our Band interface
   const transformAirtableData = (airtableRecords: any[]): Band[] => {
     return airtableRecords.map((record: any) => ({
       id: record.id || record.recordId || Math.random().toString(36),
-      name: record['Band Name'] || record.bandName || 'Unknown',
+      name: safeExtractValue(record['Band Name'] || record.bandName, 'Unknown'),
       overallScore: 0, // Will be calculated by weights
-      growthMomentumScore: record['Growth Momentum Score'] || record.growthMomentumScore || 0,
-      fanEngagementScore: record['Fan Engagement Score'] || record.fanEngagementScore || 0,
-      digitalPopularityScore: record['Digital Popularity Score'] || record['Digital Popularity'] || record.digitalPopularityScore || 0,
-      livePotentialScore: record['Live Potential Score'] || record.livePotentialScore || 0,
-      venueFitScore: record['Venue Fit Score'] || record.venueFitScore || 0,
-      recommendation: record['Recommendation Level'] || record.recommendation || 'MAYBE',
-      spotifyFollowers: record['Spotify Followers'] || record.spotifyFollowers || 0,
-      spotifyPopularity: record['Spotify Popularity Score'] || record.spotifyPopularity || 0,
-      spotifyUrl: record['Spotify Profile URL'] || record.spotifyUrl || '',
-      youtubeSubscribers: record['Youtube Subscribers'] || record.youtubeSubscribers || 0,
-      youtubeViews: record['Youtube Views'] || record.youtubeViews || 0,
-      youtubeVideoCount: record['Youtube Video Count'] || record.youtubeVideoCount || 0,
-      averageViewsPerVideo: record['Average Views Per Video'] || record.averageViewsPerVideo || 0,
-      youtubeHasVevo: record['Youtube has VEVO'] === 'true' || record.youtubeHasVevo === true,
-      estimatedDraw: record['Estimated Audience Draw'] || record.estimatedDraw || 'Unknown',
-      keyStrengths: record['Key Strengths'] || record.keyStrengths || '',
-      mainConcerns: record['Main Concerns'] || record.mainConcerns || '',
-      bookingStatus: record['Booking Status'] || record.bookingStatus || 'Not Contacted',
-      lastUpdated: record['Last Updated'] || record.lastUpdated || new Date().toISOString(),
-      dateAnalyzed: record['Date Analyzed'] || record.dateAnalyzed || new Date().toISOString(),
-      confidenceLevel: record['Draw Confidence Level'] || record.confidenceLevel || 'Medium',
-      aiAnalysisNotes: record['AI Analysis Notes'] || record.aiAnalysisNotes || ''
+      growthMomentumScore: safeExtractValue(record['Growth Momentum Score'] || record.growthMomentumScore, 0),
+      fanEngagementScore: safeExtractValue(record['Fan Engagement Score'] || record.fanEngagementScore, 0),
+      digitalPopularityScore: safeExtractValue(record['Digital Popularity Score'] || record['Digital Popularity'] || record.digitalPopularityScore, 0),
+      livePotentialScore: safeExtractValue(record['Live Potential Score'] || record.livePotentialScore, 0),
+      venueFitScore: safeExtractValue(record['Venue Fit Score'] || record.venueFitScore, 0),
+      recommendation: safeExtractValue(record['Recommendation Level'] || record.recommendation, 'MAYBE'),
+      spotifyFollowers: safeExtractValue(record['Spotify Followers'] || record.spotifyFollowers, 0),
+      spotifyPopularity: safeExtractValue(record['Spotify Popularity Score'] || record.spotifyPopularity, 0),
+      spotifyUrl: safeExtractValue(record['Spotify Profile URL'] || record.spotifyUrl, ''),
+      youtubeSubscribers: safeExtractValue(record['Youtube Subscribers'] || record.youtubeSubscribers, 0),
+      youtubeViews: safeExtractValue(record['Youtube Views'] || record.youtubeViews, 0),
+      youtubeVideoCount: safeExtractValue(record['Youtube Video Count'] || record.youtubeVideoCount, 0),
+      averageViewsPerVideo: safeExtractValue(record['Average Views Per Video'] || record.averageViewsPerVideo, 0),
+      youtubeHasVevo: safeExtractValue(record['Youtube has VEVO'], 'false') === 'true' || safeExtractValue(record['Youtube has VEVO'], false) === true,
+      estimatedDraw: safeExtractValue(record['Estimated Audience Draw'] || record.estimatedDraw, 'Unknown'),
+      keyStrengths: safeExtractValue(record['Key Strengths'] || record.keyStrengths, ''),
+      mainConcerns: safeExtractValue(record['Main Concerns'] || record.mainConcerns, ''),
+      bookingStatus: safeExtractValue(record['Booking Status'] || record.bookingStatus, 'Not Contacted'),
+      lastUpdated: safeExtractValue(record['Last Updated'] || record.lastUpdated, new Date().toISOString()),
+      dateAnalyzed: safeExtractValue(record['Date Analyzed'] || record.dateAnalyzed, new Date().toISOString()),
+      confidenceLevel: safeExtractValue(record['Draw Confidence Level'] || record.confidenceLevel, 'Medium'),
+      aiAnalysisNotes: safeExtractValue(record['AI Analysis Notes'] || record.aiAnalysisNotes, '')
     }))
   }
 
