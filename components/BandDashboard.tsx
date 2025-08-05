@@ -606,6 +606,18 @@ export default function BandDashboard() {
                     <h4 className="text-sm font-medium text-gray-700 mb-3">YouTube Analytics</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="bg-white rounded-lg p-3 text-center">
+                        <div className="text-lg font-semibold text-gray-900">{band.youtubeViews.toLocaleString()}</div>
+                        <div className="text-xs text-gray-500">Total Views</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center">
+                        <div className="text-lg font-semibold text-gray-900">{band.youtubeVideoCount}</div>
+                        <div className="text-xs text-gray-500">Video Count</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center">
+                        <div className="text-lg font-semibold text-gray-900">{band.estimatedDraw}</div>
+                        <div className="text-xs text-gray-500">Est. Draw</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center">
                         <div className="text-lg font-semibold text-gray-900">
                           {band.youtubeHasVevo ? '✓' : '✗'}
                         </div>
@@ -731,16 +743,4 @@ export default function BandDashboard() {
       </div>
     </div>
   )
-}white rounded-lg p-3 text-center">
-                        <div className="text-lg font-semibold text-gray-900">{band.youtubeViews.toLocaleString()}</div>
-                        <div className="text-xs text-gray-500">Total Views</div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-lg font-semibold text-gray-900">{band.youtubeVideoCount}</div>
-                        <div className="text-xs text-gray-500">Video Count</div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-lg font-semibold text-gray-900">{band.estimatedDraw}</div>
-                        <div className="text-xs text-gray-500">Est. Draw</div>
-                      </div>
-                      <div className="bg-
+}
