@@ -154,43 +154,71 @@ export default function BandDashboard() {
   const RETRIEVE_DATA_API = '/api/bands'
   const REFRESH_DATA_API = '/api/bands/refresh'
 
-  // Helper function to safely extract values from complex Airtable objects
-  const safeExtractValue = (field: any, fallback: any = null) => {
-    if (field === null || field === undefined) return fallback
-    if (typeof field === 'object' && field.value !== undefined) return field.value || fallback
-    if (typeof field === 'object' && field.state === 'error') return fallback
-    return field
+  // Improved helper function to safely extract values from complex Airtable objects
+const safeExtractValue = (field: any, fallback: any = null) => {
+  if (field === null || field === undefined) return fallback
+  
+  // Handle Airtable error objects
+  if (typeof field === 'object' && field.state === 'error') {
+    console.warn('Airtable field error:', field)
+    return fallback
   }
+  
+  // Handle objects with .value property
+  if (typeof field === 'object' && field.value !== undefined) {
+    return field.value || fallback
+  }
+  
+  // Handle arrays (in case of multi-select fields)
+  if (Array.isArray(field)) {
+    return field.length > 0 ? field[0] : fallback
+  }
+  
+  return field
+}
 
-  // Transform Airtable data to our Band interface
+  // Transform Airtable data to our Band interface with enhanced error handling
   const transformAirtableData = (airtableRecords: any[]): Band[] => {
-    return airtableRecords.map((record: any) => ({
-      id: record.id || record.recordId || Math.random().toString(36),
-      name: safeExtractValue(record['Band Name'] || record.bandName, 'Unknown'),
-      overallScore: 0, // Will be calculated by weights
-      growthMomentumScore: safeExtractValue(record['Growth Momentum Score'] || record.growthMomentumScore, 0),
-      fanEngagementScore: safeExtractValue(record['Fan Engagement Score'] || record.fanEngagementScore, 0),
-      digitalPopularityScore: safeExtractValue(record['Digital Popularity Score'] || record['Digital Popularity'] || record.digitalPopularityScore, 0),
-      livePotentialScore: safeExtractValue(record['Live Potential Score'] || record.livePotentialScore, 0),
-      venueFitScore: safeExtractValue(record['Venue Fit Score'] || record.venueFitScore, 0),
-      recommendation: safeExtractValue(record['Recommendation Level'] || record.recommendation, 'MAYBE'),
-      spotifyFollowers: safeExtractValue(record['Spotify Followers'] || record.spotifyFollowers, 0),
-      spotifyPopularity: safeExtractValue(record['Spotify Popularity Score'] || record.spotifyPopularity, 0),
-      spotifyUrl: safeExtractValue(record['Spotify Profile URL'] || record.spotifyUrl, ''),
-      youtubeSubscribers: safeExtractValue(record['Youtube Subscribers'] || record.youtubeSubscribers, 0),
-      youtubeViews: safeExtractValue(record['Youtube Views'] || record.youtubeViews, 0),
-      youtubeVideoCount: safeExtractValue(record['Youtube Video Count'] || record.youtubeVideoCount, 0),
-      averageViewsPerVideo: safeExtractValue(record['Average Views Per Video'] || record.averageViewsPerVideo, 0),
-      youtubeHasVevo: safeExtractValue(record['Youtube has VEVO'], 'false') === 'true' || safeExtractValue(record['Youtube has VEVO'], false) === true,
-      estimatedDraw: safeExtractValue(record['Estimated Audience Draw'] || record.estimatedDraw, 'Unknown'),
-      keyStrengths: safeExtractValue(record['Key Strengths'] || record.keyStrengths, ''),
-      mainConcerns: safeExtractValue(record['Main Concerns'] || record.mainConcerns, ''),
-      bookingStatus: safeExtractValue(record['Booking Status'] || record.bookingStatus, 'Not Contacted'),
-      lastUpdated: safeExtractValue(record['Last Updated'] || record.lastUpdated, new Date().toISOString()),
-      dateAnalyzed: safeExtractValue(record['Date Analyzed'] || record.dateAnalyzed, new Date().toISOString()),
-      confidenceLevel: safeExtractValue(record['Draw Confidence Level'] || record.confidenceLevel, 'Medium'),
-      aiAnalysisNotes: safeExtractValue(record['AI Analysis Notes'] || record.aiAnalysisNotes, '')
-    }))
+    console.log('🔄 Transforming', airtableRecords.length, 'records')
+    
+    const transformedBands = airtableRecords.map((record: any, index: number) => {
+      console.log(`🔄 Processing record ${index + 1}:`, record['Band Name'] || record.bandName || 'Unknown')
+      
+      const band = {
+        id: record.id || record.recordId || Math.random().toString(36),
+        name: safeExtractValue(record['Band Name'] || record.bandName, 'Unknown'),
+        overallScore: 0, // Will be calculated by weights
+        growthMomentumScore: Number(safeExtractValue(record['Growth Momentum Score'] || record.growthMomentumScore, 0)) || 0,
+        fanEngagementScore: Number(safeExtractValue(record['Fan Engagement Score'] || record.fanEngagementScore, 0)) || 0,
+        digitalPopularityScore: Number(safeExtractValue(record['Digital Popularity Score'] || record['Digital Popularity'] || record.digitalPopularityScore, 0)) || 0,
+        livePotentialScore: Number(safeExtractValue(record['Live Potential Score'] || record.livePotentialScore, 0)) || 0,
+        venueFitScore: Number(safeExtractValue(record['Venue Fit Score'] || record.venueFitScore, 0)) || 0,
+        recommendation: safeExtractValue(record['Recommendation Level'] || record.recommendation, 'MAYBE') as 'BOOK SOON' | 'STRONG CONSIDER' | 'MAYBE' | 'PASS',
+        spotifyFollowers: Number(safeExtractValue(record['Spotify Followers'] || record.spotifyFollowers, 0)) || 0,
+        spotifyPopularity: Number(safeExtractValue(record['Spotify Popularity Score'] || record.spotifyPopularity, 0)) || 0,
+        spotifyUrl: safeExtractValue(record['Spotify Profile URL'] || record.spotifyUrl, ''),
+        youtubeSubscribers: Number(safeExtractValue(record['Youtube Subscribers'] || record.youtubeSubscribers, 0)) || 0,
+        youtubeViews: Number(safeExtractValue(record['Youtube Views'] || record.youtubeViews, 0)) || 0,
+        youtubeVideoCount: Number(safeExtractValue(record['Youtube Video Count'] || record.youtubeVideoCount, 0)) || 0,
+        averageViewsPerVideo: Number(safeExtractValue(record['Average Views Per Video'] || record.averageViewsPerVideo, 0)) || 0,
+        youtubeHasVevo: safeExtractValue(record['Youtube has VEVO'], 'false') === 'true' || safeExtractValue(record['Youtube has VEVO'], false) === true,
+        estimatedDraw: safeExtractValue(record['Estimated Audience Draw'] || record.estimatedDraw, 'Unknown'),
+        keyStrengths: safeExtractValue(record['Key Strengths'] || record.keyStrengths, 'No strengths identified yet'),
+        mainConcerns: safeExtractValue(record['Main Concerns'] || record.mainConcerns, 'No concerns identified yet'),
+        bookingStatus: safeExtractValue(record['Booking Status'] || record.bookingStatus, 'Not Contacted') as Band['bookingStatus'],
+        lastUpdated: safeExtractValue(record['Last Updated'] || record.lastUpdated, new Date().toISOString()),
+        dateAnalyzed: safeExtractValue(record['Date Analyzed'] || record.dateAnalyzed, new Date().toISOString()),
+        confidenceLevel: safeExtractValue(record['Draw Confidence Level'] || record.confidenceLevel, 'Medium') as 'High' | 'Medium' | 'Low',
+        aiAnalysisNotes: safeExtractValue(record['AI Analysis Notes'] || record.aiAnalysisNotes, 'No analysis notes available')
+      }
+      
+      console.log(`✅ Transformed band: ${band.name} (Score components: G:${band.growthMomentumScore}, F:${band.fanEngagementScore}, D:${band.digitalPopularityScore}, L:${band.livePotentialScore}, V:${band.venueFitScore})`)
+      
+      return band
+    })
+    
+    console.log('🎯 Total transformed bands:', transformedBands.length)
+    return transformedBands
   }
 
   // Fetch band data from our API
