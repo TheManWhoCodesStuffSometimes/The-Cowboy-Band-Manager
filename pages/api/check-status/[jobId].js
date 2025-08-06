@@ -1,5 +1,4 @@
 // pages/api/check-status/[jobId].js
-// pages/api/check-status/[jobId].js
 import { get } from '@vercel/edge-config';
 
 export default async function handler(req, res) {
@@ -26,13 +25,4 @@ export default async function handler(req, res) {
     console.error('Edge Config error:', error);
     res.status(500).json({ error: 'Failed to check job status' });
   }
-} jobStatuses = getJobStatuses();
-  jobStatuses[jobId] = {
-    status: status,
-    data: data,
-    updatedAt: new Date().toISOString()
-  };
-  
-  saveJobStatuses(jobStatuses);
-  res.status(200).json({ success: true });
 }
