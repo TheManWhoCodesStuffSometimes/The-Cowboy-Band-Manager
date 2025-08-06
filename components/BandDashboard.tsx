@@ -137,6 +137,8 @@ const applyWeightsToBands = (bands: Band[], focus: string): Band[] => {
 }
 
 export default function BandDashboard() {
+  const [refreshCountdown, setRefreshCountdown] = useState<number>(0)
+  const [refreshTimer, setRefreshTimer] = useState<NodeJS.Timeout | null>(null)
   const [bands, setBands] = useState<Band[]>([])
   const [filteredBands, setFilteredBands] = useState<Band[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -297,13 +299,14 @@ const safeExtractValue = (field: any, fallback: any = null) => {
     }
   }
 
-  // Refresh data - trigger the full analysis workflow
+  // Replace your existing refreshBandData function with this:
   const refreshBandData = async () => {
     try {
       setIsRefreshing(true)
       setError(null)
-
-      const response = await fetch(REFRESH_DATA_API, {
+      
+      // Send the webhook but don't wait for it to complete
+      fetch(REFRESH_DATA_API, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -311,29 +314,51 @@ const safeExtractValue = (field: any, fallback: any = null) => {
         body: JSON.stringify({
           lastRefresh: lastRefresh?.toISOString()
         })
+      }).catch(error => {
+        // Log but don't fail - the webhook was sent
+        console.error('Webhook error (non-critical):', error)
       })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const result = await response.json()
+  
+      // Start 4-minute countdown timer (240 seconds)
+      setRefreshCountdown(240)
       
-      // After refresh completes, fetch the updated data
-      await fetchBandData()
-      setLastRefresh(new Date())
+      const timer = setInterval(() => {
+        setRefreshCountdown(prev => {
+          if (prev <= 1) {
+            // Timer finished - reload data and cleanup
+            clearInterval(timer)
+            setRefreshTimer(null)
+            setIsRefreshing(false)
+            fetchBandData() // This will get the fresh data
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
       
-      // Show success message if new bands were found
-      if (result.newBandsFound && result.newBandsFound > 0) {
-        console.log(`Refresh complete! Found ${result.newBandsFound} new bands.`)
-      }
-
+      setRefreshTimer(timer)
+  
     } catch (error) {
-      console.error('Error refreshing data:', error)
-      setError('Failed to refresh data. Please try again.')
-    } finally {
+      console.error('Error starting refresh:', error)
+      setError('Failed to start refresh process')
       setIsRefreshing(false)
     }
+  }
+  
+  // Add cleanup function to clear timer if component unmounts
+  useEffect(() => {
+    return () => {
+      if (refreshTimer) {
+        clearInterval(refreshTimer)
+      }
+    }
+  }, [refreshTimer])
+  
+  // Helper function to format countdown time
+  const formatCountdown = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
   }
 
   // Load data on component mount
