@@ -1,49 +1,12 @@
-// app/dj/page.tsx - UPDATED VERSION
+// app/dj/page.tsx - CLEAN VERSION
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { SpeakerWaveIcon, ArrowPathIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { useRouter } from 'next/navigation'
 import DjView from '@/components/dj/DjView'
+import DjAuthWrapper from '@/components/dj/DjAuthWrapper'
 import type { SongRequest, CooldownSong, BlacklistedSong } from '@/types/dj'
-
-// Authentication wrapper component
-function DjAuthWrapper({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
-  const router = useRouter()
-
-  useEffect(() => {
-    // Check authentication status
-    if (typeof window !== 'undefined') {
-      const authStatus = sessionStorage.getItem('isDjAuthenticated') === 'true'
-      setIsAuthenticated(authStatus)
-      
-      if (!authStatus) {
-        router.push('/dj/login')
-      }
-    }
-  }, [router])
-
-  // Show loading while checking auth
-  if (isAuthenticated === null) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-pink-500 mx-auto"></div>
-          <h2 className="text-2xl font-bold text-white mt-4">Checking Access...</h2>
-        </div>
-      </div>
-    )
-  }
-
-  // Show login redirect if not authenticated
-  if (!isAuthenticated) {
-    return null // Router will handle redirect
-  }
-
-  // Show DJ dashboard if authenticated
-  return <>{children}</>
-}
 
 function DjDashboardContent() {
   const [songRequests, setSongRequests] = useState<SongRequest[]>([])
@@ -75,32 +38,23 @@ function DjDashboardContent() {
       setIsLoading(true)
       setError(null)
 
-      // For now, use mock data since n8n webhooks aren't set up yet
-      const mockRequests: SongRequest[] = [
-        { id: 'queen-bohemian-rhapsody', title: 'Bohemian Rhapsody', artist: 'Queen', requestCount: 3 },
-        { id: 'eagles-hotel-california', title: 'Hotel California', artist: 'Eagles', requestCount: 2 },
-        { id: 'journey-dont-stop-believin', title: "Don't Stop Believin'", artist: 'Journey', requestCount: 1 }
-      ]
+      // Fetch from our API endpoints
+      const [requestsResponse, blacklistResponse, cooldownResponse] = await Promise.all([
+        fetch('/api/dj/requests'),
+        fetch('/api/dj/blacklist'),
+        fetch('/api/dj/cooldown')
+      ])
 
-      const mockBlacklist: BlacklistedSong[] = [
-        { id: 'baby-shark-pinkfong', title: 'Baby Shark', artist: 'Pinkfong' }
-      ]
+      const [requestsData, blacklistData, cooldownData] = await Promise.all([
+        requestsResponse.json(),
+        blacklistResponse.json(),
+        cooldownResponse.json()
+      ])
 
-      const mockCooldown: CooldownSong[] = [
-        { 
-          id: 'sweet-caroline-neil-diamond', 
-          title: 'Sweet Caroline', 
-          artist: 'Neil Diamond', 
-          cooldownUntil: Date.now() + (1.5 * 60 * 60 * 1000) // 1.5 hours remaining
-        }
-      ]
-
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      setSongRequests(mockRequests)
-      setBlacklist(mockBlacklist)
-      setCooldownSongs(mockCooldown)
+      if (requestsData.success) setSongRequests(requestsData.data || [])
+      if (blacklistData.success) setBlacklist(blacklistData.data || [])
+      if (cooldownData.success) setCooldownSongs(cooldownData.data || [])
+      
       setLastRefresh(new Date())
 
     } catch (error) {
@@ -117,13 +71,21 @@ function DjDashboardContent() {
     if (!songToPlay) return
 
     try {
-      // For now, just update local state
-      // TODO: Call API when n8n webhooks are ready
-      setSongRequests(prev => prev.filter(req => req.id !== songId))
-      setCooldownSongs(prev => [...prev, {
-        ...songToPlay,
-        cooldownUntil: Date.now() + COOLDOWN_DURATION
-      }])
+      const response = await fetch('/api/dj/play-song', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ songId, ...songToPlay })
+      })
+
+      if (response.ok) {
+        setSongRequests(prev => prev.filter(req => req.id !== songId))
+        setCooldownSongs(prev => [...prev, {
+          ...songToPlay,
+          cooldownUntil: Date.now() + COOLDOWN_DURATION
+        }])
+      } else {
+        throw new Error('Failed to play song')
+      }
 
     } catch (error) {
       console.error('Error playing song:', error)
@@ -137,15 +99,23 @@ function DjDashboardContent() {
     const blacklistedSong: BlacklistedSong = { id: songId, title, artist }
 
     try {
-      // For now, just update local state
-      // TODO: Call API when n8n webhooks are ready
-      setBlacklist(prev => {
-        if (prev.some(s => s.id === songId)) return prev // Already blacklisted
-        return [...prev, blacklistedSong]
+      const response = await fetch('/api/dj/blacklist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(blacklistedSong)
       })
 
-      // Remove any pending requests for this song
-      setSongRequests(prev => prev.filter(req => req.id !== songId))
+      if (response.ok) {
+        setBlacklist(prev => {
+          if (prev.some(s => s.id === songId)) return prev // Already blacklisted
+          return [...prev, blacklistedSong]
+        })
+
+        // Remove any pending requests for this song
+        setSongRequests(prev => prev.filter(req => req.id !== songId))
+      } else {
+        throw new Error('Failed to blacklist song')
+      }
 
     } catch (error) {
       console.error('Error blacklisting song:', error)
@@ -156,9 +126,17 @@ function DjDashboardContent() {
   // Handle removing song from blacklist
   const handleRemoveFromBlacklist = useCallback(async (songId: string) => {
     try {
-      // For now, just update local state
-      // TODO: Call API when n8n webhooks are ready
-      setBlacklist(prev => prev.filter(song => song.id !== songId))
+      const response = await fetch('/api/dj/blacklist', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ songId })
+      })
+
+      if (response.ok) {
+        setBlacklist(prev => prev.filter(song => song.id !== songId))
+      } else {
+        throw new Error('Failed to remove from blacklist')
+      }
 
     } catch (error) {
       console.error('Error removing from blacklist:', error)
