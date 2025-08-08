@@ -1,14 +1,13 @@
-// app/dj/page.tsx - CLEAN VERSION
+// app/dj/page.tsx - SIMPLIFIED VERSION
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { SpeakerWaveIcon, ArrowPathIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { useRouter } from 'next/navigation'
 import DjView from '@/components/dj/DjView'
-import DjAuthWrapper from '@/components/dj/DjAuthWrapper'
 import type { SongRequest, CooldownSong, BlacklistedSong } from '@/types/dj'
 
-function DjDashboardContent() {
+export default function DjDashboard() {
   const [songRequests, setSongRequests] = useState<SongRequest[]>([])
   const [cooldownSongs, setCooldownSongs] = useState<CooldownSong[]>([])
   const [blacklist, setBlacklist] = useState<BlacklistedSong[]>([])
@@ -19,12 +18,13 @@ function DjDashboardContent() {
 
   const COOLDOWN_DURATION = 2 * 60 * 60 * 1000 // 2 hours in milliseconds
 
-  // Handle logout
+  // Handle logout - now logs out of the entire app
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('isDjAuthenticated')
+      sessionStorage.removeItem('isAppAuthenticated')
     }
-    router.push('/')
+    // Refresh the page to trigger the app-level login
+    window.location.reload()
   }
 
   // Generate consistent song IDs
@@ -247,13 +247,5 @@ function DjDashboardContent() {
         />
       </div>
     </div>
-  )
-}
-
-export default function DjDashboard() {
-  return (
-    <DjAuthWrapper>
-      <DjDashboardContent />
-    </DjAuthWrapper>
   )
 }
