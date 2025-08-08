@@ -1,9 +1,20 @@
-// app/page.tsx - CLEAN VERSION (Remove duplicated content)
+// app/page.tsx - UPDATED VERSION WITH LOGOUT
+'use client'
+
 import Link from 'next/link'
 import { SpeakerWaveIcon, MicrophoneIcon, LightBulbIcon } from '@heroicons/react/24/outline'
 import BandDashboard from '@/components/BandDashboard'
 
 export default function Home() {
+  // Handle logout
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('isAppAuthenticated')
+    }
+    // Refresh the page to trigger the app-level login
+    window.location.reload()
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
       {/* Main Navigation Header */}
@@ -45,6 +56,14 @@ export default function Home() {
                 <LightBulbIcon className="h-5 w-5 mr-2" />
                 Lights Manager
               </Link>
+
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>
