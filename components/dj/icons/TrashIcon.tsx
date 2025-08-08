@@ -1,7 +1,11 @@
-// components/dj/icons/TrashIcon.tsx - MISSING FILE
+// components/dj/icons/TrashIcon.tsx
 import React from 'react'
 
-const TrashIcon = ({ className }: { className?: string }) => (
+interface IconProps {
+  className?: string
+}
+
+const TrashIcon: React.FC<IconProps> = ({ className }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
