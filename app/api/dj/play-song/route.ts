@@ -1,31 +1,35 @@
-// app/api/dj/play-song/route.ts - SEPARATE FILE
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest) {
-  const timestamp = new Date().toISOString()
-  const requestId = Math.random().toString(36).substring(7)
-  
-  console.log(`[${timestamp}] [${requestId}] 🎵 API Route: POST /api/dj/play-song called`)
-  
+let cooldownSongs: any[] = [];
+
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+}
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { status: 204, headers: corsHeaders() });
+}
+
+export async function POST(req: Request) {
   try {
-    const body = await request.json()
-    console.log(`[${timestamp}] [${requestId}] Request body:`, body)
-    
-    // For now, just return success
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Song moved to cooldown',
-      data: body 
-    })
-    
-  } catch (error) {
-    console.error(`[${timestamp}] [${requestId}] 💥 API Route Error:`, error)
-    return NextResponse.json(
-      { 
-        error: 'Failed to play song', 
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }, 
-      { status: 500 }
-    )
+    const body = await req.json();
+    if (!body.songId || !body.title) {
+      return NextResponse.json({ success: false, error: 'Missing songId or title' }, { status: 400, headers: corsHeaders() });
+    }
+
+    cooldownSongs.push({
+      songId: body.songId,
+      title: body.title,
+      artist: body.artist,
+      cooldownUntil: body.cooldownUntil || new Date(Date.now() + 10 * 60000).toISOString(), // default 10 min cooldown
+    });
+
+    return NextResponse.json({ success: true }, { headers: corsHeaders() });
+  } catch {
+    return NextResponse.json({ success: false, error: 'Server error' }, { status: 500, headers: corsHeaders() });
   }
 }
