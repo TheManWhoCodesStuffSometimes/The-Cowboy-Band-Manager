@@ -1,4 +1,4 @@
-// components/dj/DjAuthWrapper.tsx - MISSING FILE
+// components/dj/DjAuthWrapper.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -14,11 +14,13 @@ export default function DjAuthWrapper({ children }: DjAuthWrapperProps) {
 
   useEffect(() => {
     // Check authentication status
-    const authStatus = sessionStorage.getItem('isDjAuthenticated') === 'true'
-    setIsAuthenticated(authStatus)
-    
-    if (!authStatus) {
-      router.push('/dj/login')
+    if (typeof window !== 'undefined') {
+      const authStatus = sessionStorage.getItem('isDjAuthenticated') === 'true'
+      setIsAuthenticated(authStatus)
+      
+      if (!authStatus) {
+        router.push('/dj/login')
+      }
     }
   }, [router])
 
@@ -42,25 +44,3 @@ export default function DjAuthWrapper({ children }: DjAuthWrapperProps) {
   // Show DJ dashboard if authenticated
   return <>{children}</>
 }
-
-// components/dj/icons/ClockIcon.tsx - MISSING FILE
-import React from 'react'
-
-const ClockIcon = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    className={className}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-    />
-  </svg>
-)
-
-export default ClockIcon
