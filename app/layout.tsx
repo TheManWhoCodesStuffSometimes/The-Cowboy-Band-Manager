@@ -1,5 +1,6 @@
 import './globals.css'
 import type { Metadata } from 'next'
+import AppAuthWrapper from '@/components/AppAuthWrapper'
 
 export const metadata: Metadata = {
   title: 'Cowboy Band Manager',
@@ -14,7 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        {children}
+        <AppAuthWrapper>
+          {children}
+        </AppAuthWrapper>
       </body>
     </html>
   )
