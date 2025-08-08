@@ -1,7 +1,11 @@
-// components/dj/icons/BlacklistIcon.tsx - MISSING FILE
+// components/dj/icons/BlacklistIcon.tsx
 import React from 'react'
 
-const BlacklistIcon = ({ className }: { className?: string }) => (
+interface IconProps {
+  className?: string
+}
+
+const BlacklistIcon: React.FC<IconProps> = ({ className }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
