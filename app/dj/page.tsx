@@ -1,4 +1,4 @@
-// app/dj/page.tsx - SIMPLIFIED VERSION
+// app/dj/page.tsx - FIXED VERSION - Manual refresh only
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -152,13 +152,10 @@ export default function DjDashboard() {
     return () => clearInterval(interval)
   }, [])
 
-  // Load data on component mount
+  // Load data on component mount - REMOVED AUTO-REFRESH
   useEffect(() => {
     fetchDjData()
-    
-    // Set up periodic refresh every 30 seconds
-    const refreshInterval = setInterval(fetchDjData, 30000)
-    return () => clearInterval(refreshInterval)
+    // REMOVED: automatic refresh interval
   }, [])
 
   if (isLoading) {
