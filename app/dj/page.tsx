@@ -96,7 +96,12 @@ export default function DjDashboard() {
   // Handle adding song to blacklist
   const handleAddToBlacklist = useCallback(async (title: string, artist: string) => {
     const songId = generateSongId(title, artist)
-    const blacklistedSong: BlacklistedSong = { songId: songId, title, artist }
+    const blacklistedSong = { 
+      id: songId, 
+      songId: songId,  // ADD THIS LINE
+      title, 
+      artist 
+    }
 
     try {
       const response = await fetch('/api/dj/blacklist', {
