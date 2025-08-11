@@ -1,13 +1,12 @@
-// app/api/dj/requests/route.ts
+// app/api/dj/requests/route.ts - Updated to use n8n webhook
 import { NextResponse } from 'next/server';
 
-// Temporary in-memory store (replace with DB or your n8n integration)
-let songRequests: any[] = [];
+const N8N_WEBHOOK_URL = 'https://thayneautomations.app.n8n.cloud/webhook/dj';
 
 // CORS headers
 function corsHeaders() {
   return {
-    'Access-Control-Allow-Origin': '*', // Change to your customer app domain in production
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type'
   };
@@ -18,18 +17,56 @@ export async function OPTIONS() {
   return NextResponse.json({}, { status: 204, headers: corsHeaders() });
 }
 
-// GET: return all song requests
+// GET: return all song requests from n8n
 export async function GET() {
-  return NextResponse.json(
-    { success: true, data: songRequests },
-    { headers: corsHeaders() }
-  );
+  try {
+    console.log('Fetching requests from n8n...');
+    
+    const response = await fetch(N8N_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'requests.get'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`n8n responded with status ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('n8n response:', result);
+
+    // Handle n8n response format
+    if (result.success) {
+      return NextResponse.json(
+        { success: true, data: result.data || [] },
+        { headers: corsHeaders() }
+      );
+    } else {
+      throw new Error(result.error || 'n8n returned unsuccessful response');
+    }
+
+  } catch (error) {
+    console.error('Error fetching requests from n8n:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: 'Failed to fetch requests',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500, headers: corsHeaders() }
+    );
+  }
 }
 
-// POST: add a new song request
+// POST: add a new song request via n8n
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    console.log('Adding request via n8n:', body);
 
     // Basic validation
     if (!body.title || !body.artist || !body.songId) {
@@ -39,34 +76,53 @@ export async function POST(req: Request) {
       );
     }
 
-    // Store the request
-    const newRequest = {
-      id: body.songId,
-      title: body.title,
-      artist: body.artist,
-      requestCount: 1,
-      venue: body.venue || 'unknown',
-      timestamp: body.timestamp || new Date().toISOString(),
-      source: body.source || 'unknown'
-    };
+    // Send to n8n
+    const response = await fetch(N8N_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'requests.add',
+        data: {
+          songId: body.songId,
+          title: body.title,
+          artist: body.artist,
+          venue: body.venue || 'unknown',
+          timestamp: body.timestamp || new Date().toISOString(),
+          requestCount: body.requestCount || 1
+        }
+      })
+    });
 
-    // Check if already requested — increment count if so
-    const existingIndex = songRequests.findIndex((req) => req.id === newRequest.id);
-    if (existingIndex !== -1) {
-      songRequests[existingIndex].requestCount += 1;
-    } else {
-      songRequests.push(newRequest);
+    if (!response.ok) {
+      throw new Error(`n8n responded with status ${response.status}`);
     }
 
-    return NextResponse.json(
-      { success: true, data: newRequest },
-      { headers: corsHeaders() }
-    );
+    const result = await response.json();
+    console.log('n8n add response:', result);
+
+    if (result.success) {
+      return NextResponse.json(
+        { success: true, data: result.data },
+        { headers: corsHeaders() }
+      );
+    } else {
+      // Handle specific n8n errors (like blacklist)
+      return NextResponse.json(
+        { success: false, error: result.error || 'Request failed' },
+        { status: 400, headers: corsHeaders() }
+      );
+    }
 
   } catch (error) {
-    console.error('Error processing POST /api/dj/requests:', error);
+    console.error('Error adding request via n8n:', error);
     return NextResponse.json(
-      { success: false, error: 'Server error' },
+      { 
+        success: false, 
+        error: 'Failed to add request',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500, headers: corsHeaders() }
     );
   }
