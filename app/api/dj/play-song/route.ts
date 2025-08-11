@@ -1,6 +1,7 @@
+// app/api/dj/play-song/route.ts - Updated to use n8n webhook
 import { NextResponse } from 'next/server';
 
-let cooldownSongs: any[] = [];
+const N8N_WEBHOOK_URL = 'https://thayneautomations.app.n8n.cloud/webhook/dj';
 
 function corsHeaders() {
   return {
@@ -14,22 +15,69 @@ export async function OPTIONS() {
   return NextResponse.json({}, { status: 204, headers: corsHeaders() });
 }
 
+// POST: play a song (move from requests to cooldown) via n8n
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    if (!body.songId || !body.title) {
-      return NextResponse.json({ success: false, error: 'Missing songId or title' }, { status: 400, headers: corsHeaders() });
+    console.log('Playing song via n8n:', body);
+
+    // Basic validation
+    if (!body.songId || !body.title || !body.artist) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields: songId, title, artist' },
+        { status: 400, headers: corsHeaders() }
+      );
     }
 
-    cooldownSongs.push({
-      songId: body.songId,
-      title: body.title,
-      artist: body.artist,
-      cooldownUntil: body.cooldownUntil || new Date(Date.now() + 10 * 60000).toISOString(), // default 10 min cooldown
+    // Calculate cooldown time (2 hours from now)
+    const cooldownUntil = body.cooldownUntil || new Date(Date.now() + (2 * 60 * 60 * 1000)).toISOString();
+
+    // Send to n8n
+    const response = await fetch(N8N_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'play.add',
+        data: {
+          songId: body.songId,
+          title: body.title,
+          artist: body.artist,
+          cooldownUntil: cooldownUntil,
+          playedAt: new Date().toISOString()
+        }
+      })
     });
 
-    return NextResponse.json({ success: true }, { headers: corsHeaders() });
-  } catch {
-    return NextResponse.json({ success: false, error: 'Server error' }, { status: 500, headers: corsHeaders() });
+    if (!response.ok) {
+      throw new Error(`n8n responded with status ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('n8n play song response:', result);
+
+    if (result.success) {
+      return NextResponse.json(
+        { success: true, data: result.data },
+        { headers: corsHeaders() }
+      );
+    } else {
+      return NextResponse.json(
+        { success: false, error: result.error || 'Failed to play song' },
+        { status: 400, headers: corsHeaders() }
+      );
+    }
+
+  } catch (error) {
+    console.error('Error playing song via n8n:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: 'Failed to play song',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500, headers: corsHeaders() }
+    );
   }
 }
