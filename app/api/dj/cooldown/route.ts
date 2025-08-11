@@ -1,4 +1,4 @@
-// app/api/dj/play-song/route.ts - Updated to use n8n webhook
+// app/api/dj/cooldown/route.ts - Updated to use n8n webhook
 import { NextResponse } from 'next/server';
 
 const N8N_WEBHOOK_URL = 'https://thayneautomations.app.n8n.cloud/webhook/dj';
@@ -6,7 +6,7 @@ const N8N_WEBHOOK_URL = 'https://thayneautomations.app.n8n.cloud/webhook/dj';
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
 }
@@ -15,38 +15,18 @@ export async function OPTIONS() {
   return NextResponse.json({}, { status: 204, headers: corsHeaders() });
 }
 
-// POST: play a song (move from requests to cooldown) via n8n
-export async function POST(req: Request) {
+// GET: return all songs on cooldown from n8n
+export async function GET() {
   try {
-    const body = await req.json();
-    console.log('Playing song via n8n:', body);
-
-    // Basic validation
-    if (!body.songId || !body.title || !body.artist) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields: songId, title, artist' },
-        { status: 400, headers: corsHeaders() }
-      );
-    }
-
-    // Calculate cooldown time (2 hours from now)
-    const cooldownUntil = body.cooldownUntil || new Date(Date.now() + (2 * 60 * 60 * 1000)).toISOString();
-
-    // Send to n8n
+    console.log('Fetching cooldown songs from n8n...');
+    
     const response = await fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        action: 'play.add',
-        data: {
-          songId: body.songId,
-          title: body.title,
-          artist: body.artist,
-          cooldownUntil: cooldownUntil,
-          playedAt: new Date().toISOString()
-        }
+        action: 'cooldown.get'
       })
     });
 
@@ -55,19 +35,36 @@ export async function POST(req: Request) {
     }
 
     const result = await response.json();
-    console.log('n8n play song response:', result);
+    console.log('n8n cooldown response:', result);
 
+    // Handle n8n response format
     if (result.success) {
+      // Convert cooldown data to match frontend expectations
+      const cooldownSongs = (result.data || []).map((song: any) => ({
+        id: song.songId || song.id,
+        title: song.title,
+        artist: song.artist,
+        cooldownUntil: song.cooldownUntil ? new Date(song.cooldownUntil).getTime() : Date.now() + (2 * 60 * 60 * 1000),
+        playedAt: song.playedAt || song.timestamp
+      }));
+
       return NextResponse.json(
-        { success: true, data: result.data },
+        { success: true, data: cooldownSongs },
         { headers: corsHeaders() }
       );
     } else {
-      return NextResponse.json(
-        { success: false, error: result.error || 'Failed to play song' },
-        { status: 400, headers: corsHeaders() }
-      );
+      throw new Error(result.error || 'n8n returned unsuccessful response');
     }
 
   } catch (error) {
-    console.
+    console.error('Error fetching cooldown songs from n8n:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: 'Failed to fetch cooldown songs',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500, headers: corsHeaders() }
+    );
+  }
+}
