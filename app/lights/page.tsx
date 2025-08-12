@@ -5,6 +5,21 @@ import { useEffect } from 'react'
 import { LightBulbIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { useRouter } from 'next/navigation'
 
+// TypeScript declarations for window functions
+declare global {
+  interface Window {
+    generateColorCombo: () => void;
+    setFilter: (filter: string) => void;
+    toggleDropdown: () => void;
+    toggleColorExclusion: (colorName: string) => void;
+    selectAllColors: () => void;
+    selectNoneColors: () => void;
+    selectWarmColors: () => void;
+    selectCoolColors: () => void;
+    clearHistory: () => void;
+  }
+}
+
 export default function LightsPage() {
   const router = useRouter()
 
@@ -806,7 +821,7 @@ export default function LightsPage() {
           <h1 className="lights-title">🤠 The Cowboy Saloon Lights Coordinator 🎵</h1>
           <p className="lights-subtitle">Coordinate your stage presets with sign remote colors</p>
           
-          <button className="lights-generate-btn" onClick={() => window.generateColorCombo && window.generateColorCombo()} id="mainGenerateBtn">
+          <button className="lights-generate-btn" onClick={() => window.generateColorCombo()} id="mainGenerateBtn">
             🎨 Generate Perfect Light Coordination 🎨
           </button>
           
@@ -825,20 +840,20 @@ export default function LightsPage() {
               </div>
             </div>
             
-            <button className="lights-generate-btn" onClick={() => window.generateColorCombo && window.generateColorCombo()} style={{marginTop: '15px'}}>
+            <button className="lights-generate-btn" onClick={() => window.generateColorCombo()} style={{marginTop: '15px'}}>
               🔄 Generate New Coordination 🔄
             </button>
           </div>
           
           <div className="lights-generate-section">
             <div className="lights-filter-options">
-              <button className="lights-filter-btn active" onClick={() => window.setFilter && window.setFilter('all')}>All Presets</button>
-              <button className="lights-filter-btn" onClick={() => window.setFilter && window.setFilter('motion')}>Motion Only</button>
-              <button className="lights-filter-btn" onClick={() => window.setFilter && window.setFilter('static')}>Static Colors</button>
-              <button className="lights-filter-btn" onClick={() => window.setFilter && window.setFilter('strobe')}>Strobe Effects</button>
-              <button className="lights-filter-btn" onClick={() => window.setFilter && window.setFilter('special')}>Special Effects</button>
-              <button className="lights-filter-btn" onClick={() => window.setFilter && window.setFilter('warm')}>🔥 Warm Colors</button>
-              <button className="lights-filter-btn" onClick={() => window.setFilter && window.setFilter('cool')}>❄️ Cool Colors</button>
+              <button className="lights-filter-btn active" onClick={() => window.setFilter('all')}>All Presets</button>
+              <button className="lights-filter-btn" onClick={() => window.setFilter('motion')}>Motion Only</button>
+              <button className="lights-filter-btn" onClick={() => window.setFilter('static')}>Static Colors</button>
+              <button className="lights-filter-btn" onClick={() => window.setFilter('strobe')}>Strobe Effects</button>
+              <button className="lights-filter-btn" onClick={() => window.setFilter('special')}>Special Effects</button>
+              <button className="lights-filter-btn" onClick={() => window.setFilter('warm')}>🔥 Warm Colors</button>
+              <button className="lights-filter-btn" onClick={() => window.setFilter('cool')}>❄️ Cool Colors</button>
             </div>
             
             <div className="lights-color-exclusion-section">
@@ -848,17 +863,17 @@ export default function LightsPage() {
               </p>
               
               <div className="lights-dropdown-container">
-                <div className="lights-dropdown-toggle" onClick={() => window.toggleDropdown && window.toggleDropdown()} id="dropdownToggle">
+                <div className="lights-dropdown-toggle" onClick={() => window.toggleDropdown()} id="dropdownToggle">
                   <span id="dropdownLabel">Click to manage color exclusions</span>
                   <span className="lights-dropdown-arrow">▼</span>
                 </div>
                 <div className="lights-dropdown-content" id="dropdownContent">
                   <div className="lights-color-grid" id="colorExclusionGrid"></div>
                   <div className="lights-exclusion-controls">
-                    <button className="lights-exclusion-control-btn" onClick={() => window.selectAllColors && window.selectAllColors()}>Select All</button>
-                    <button className="lights-exclusion-control-btn" onClick={() => window.selectNoneColors && window.selectNoneColors()}>Select None</button>
-                    <button className="lights-exclusion-control-btn" onClick={() => window.selectWarmColors && window.selectWarmColors()}>🔥 Warm Only</button>
-                    <button className="lights-exclusion-control-btn" onClick={() => window.selectCoolColors && window.selectCoolColors()}>❄️ Cool Only</button>
+                    <button className="lights-exclusion-control-btn" onClick={() => window.selectAllColors()}>Select All</button>
+                    <button className="lights-exclusion-control-btn" onClick={() => window.selectNoneColors()}>Select None</button>
+                    <button className="lights-exclusion-control-btn" onClick={() => window.selectWarmColors()}>🔥 Warm Only</button>
+                    <button className="lights-exclusion-control-btn" onClick={() => window.selectCoolColors()}>❄️ Cool Only</button>
                   </div>
                 </div>
               </div>
@@ -868,7 +883,7 @@ export default function LightsPage() {
           <div className="lights-recent-history">
             <h3 className="lights-history-title">📋 Recent Light Combinations</h3>
             <div id="historyList"></div>
-            <button className="lights-clear-history" onClick={() => window.clearHistory && window.clearHistory()}>Clear History</button>
+            <button className="lights-clear-history" onClick={() => window.clearHistory()}>Clear History</button>
           </div>
         </div>
       </div>
