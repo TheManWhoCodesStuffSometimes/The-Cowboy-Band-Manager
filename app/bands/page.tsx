@@ -1,4 +1,4 @@
-// app/bands/page.tsx - MISSING FILE
+// app/bands/page.tsx - Clean band management page
 import BandDashboard from '@/components/BandDashboard'
 
 export default function BandsPage() {
