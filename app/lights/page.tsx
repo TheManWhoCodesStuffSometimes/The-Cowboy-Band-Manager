@@ -467,8 +467,311 @@ export default function LightsPage() {
     `
     document.head.appendChild(styleElement)
 
+    // Inject the JavaScript functionality
+    const scriptElement = document.createElement('script')
+    scriptElement.innerHTML = `
+      // Stage light presets from the hub
+      const stagePresets = {
+          1: { name: "Red-Yellow-Red", colors: ["#FF0000", "#FFD700", "#FF0000"], category: "static", temperature: "warm" },
+          2: { name: "White-Red-White-Red (Random Yellow)", colors: ["#FFFFFF", "#FF0000", "#FFFFFF", "#FF0000"], category: "static", temperature: "mixed" },
+          3: { name: "All Green", colors: ["#00AA00"], category: "static", temperature: "cool" },
+          4: { name: "Red-White-Blue-White-Red", colors: ["#FF0000", "#FFFFFF", "#0066FF", "#FFFFFF", "#FF0000"], category: "static", temperature: "mixed" },
+          5: { name: "All Purple", colors: ["#8A2BE2"], category: "static", temperature: "cool" },
+          6: { name: "Blue-Yellow-Blue-Yellow-Blue", colors: ["#0066FF", "#FFD700", "#0066FF", "#FFD700", "#0066FF"], category: "static", temperature: "mixed" },
+          7: { name: "Teal-Red-Teal-Red", colors: ["#20B2AA", "#FF0000", "#20B2AA", "#FF0000"], category: "static", temperature: "mixed" },
+          13: { name: "All Red (Motion)", colors: ["#FF0000"], category: "motion", temperature: "warm" },
+          14: { name: "White-Red-White-Red (Random Yellow)", colors: ["#FFFFFF", "#FF0000", "#FFFFFF", "#FF0000"], category: "motion", temperature: "mixed" },
+          15: { name: "All Green Motion", colors: ["#00AA00"], category: "motion", temperature: "cool" },
+          16: { name: "Red-White-Blue-White-Red (Motion)", colors: ["#FF0000", "#FFFFFF", "#0066FF", "#FFFFFF", "#FF0000"], category: "motion", temperature: "mixed" },
+          17: { name: "Purple-Teal-Purple (Motion)", colors: ["#8A2BE2", "#20B2AA", "#8A2BE2"], category: "motion", temperature: "cool" },
+          18: { name: "Blue-Yellow-Blue (Motion)", colors: ["#0066FF", "#FFD700", "#0066FF"], category: "motion", temperature: "mixed" },
+          19: { name: "Teal-Red-Teal-Red-Teal (Motion)", colors: ["#20B2AA", "#FF0000", "#20B2AA", "#FF0000", "#20B2AA"], category: "motion", temperature: "mixed" },
+          25: { name: "All White Dim", colors: ["#E6E6E6"], category: "special", temperature: "neutral" },
+          37: { name: "All White Bright", colors: ["#FFFFFF"], category: "special", temperature: "neutral" },
+          44: { name: "Fast Strobe (Stage Facing Off)", colors: ["#FFFFFF"], category: "strobe", temperature: "neutral" },
+          45: { name: "Slow Strobe (Stage Facing Off)", colors: ["#FFFFFF"], category: "strobe", temperature: "neutral" },
+          46: { name: "Random Slow Strobe", colors: ["#FF0000", "#0066FF", "#00AA00", "#FFD700"], category: "strobe", temperature: "mixed" },
+          47: { name: "Fast Strobe (Stage Facing On)", colors: ["#FFFFFF"], category: "strobe", temperature: "neutral" },
+          48: { name: "Off", colors: ["#000000"], category: "special", temperature: "neutral" }
+      };
+
+      // Remote colors with temperature classification
+      const remoteColors = {
+          'Red': { hex: '#FF0000', temp: 'warm' },
+          'Orange': { hex: '#FF8C00', temp: 'warm' }, 
+          'Yellow': { hex: '#FFD700', temp: 'warm' },
+          'Green': { hex: '#00AA00', temp: 'cool' },
+          'Light Blue': { hex: '#87CEEB', temp: 'cool' },
+          'Blue': { hex: '#0066FF', temp: 'cool' },
+          'Dark Blue': { hex: '#000080', temp: 'cool' },
+          'Purple': { hex: '#8A2BE2', temp: 'cool' },
+          'Pink': { hex: '#FF69B4', temp: 'warm' },
+          'Teal': { hex: '#20B2AA', temp: 'cool' },
+          'Cyan': { hex: '#00FFFF', temp: 'cool' },
+          'White': { hex: '#FFFFFF', temp: 'neutral' }
+      };
+
+      // Remote colors mapped to stage colors for exact matching
+      const colorMapping = {
+          '#FF0000': 'Red',
+          '#FF8C00': 'Orange', 
+          '#FFD700': 'Yellow',
+          '#00AA00': 'Green',
+          '#87CEEB': 'Light Blue',
+          '#0066FF': 'Blue',
+          '#000080': 'Dark Blue',
+          '#8A2BE2': 'Purple',
+          '#FF69B4': 'Pink',
+          '#20B2AA': 'Teal',
+          '#00FFFF': 'Cyan',
+          '#FFFFFF': 'White',
+          '#E6E6E6': 'White',
+          '#000000': 'White'
+      };
+
+      let recentCombinations = JSON.parse(localStorage.getItem('cowboyLightHistory') || '[]');
+      let excludedColors = JSON.parse(localStorage.getItem('cowboyExcludedColors') || '[]');
+      let currentFilter = 'all';
+
+      window.setFilter = function(filter) {
+          currentFilter = filter;
+          document.querySelectorAll('.lights-filter-btn').forEach(btn => {
+              btn.classList.remove('active');
+          });
+          event.target.classList.add('active');
+      }
+
+      window.toggleDropdown = function() {
+          const toggle = document.getElementById('dropdownToggle');
+          const content = document.getElementById('dropdownContent');
+          toggle.classList.toggle('open');
+          content.classList.toggle('open');
+          updateDropdownLabel();
+      }
+
+      function updateDropdownLabel() {
+          const label = document.getElementById('dropdownLabel');
+          const excludedCount = excludedColors.length;
+          const totalColors = Object.keys(remoteColors).length;
+          const activeCount = totalColors - excludedCount;
+          
+          if (excludedCount === 0) {
+              label.textContent = \`All colors active (\${totalColors})\`;
+          } else if (excludedCount === totalColors) {
+              label.textContent = 'All colors excluded!';
+          } else {
+              label.textContent = \`\${activeCount} colors active, \${excludedCount} excluded\`;
+          }
+      }
+
+      function initializeColorExclusion() {
+          const grid = document.getElementById('colorExclusionGrid');
+          grid.innerHTML = Object.keys(remoteColors).map(colorName => {
+              const colorData = remoteColors[colorName];
+              const isExcluded = excludedColors.includes(colorName);
+              return \`
+                  <div class="lights-color-exclusion-btn \${isExcluded ? 'excluded' : ''}" 
+                       onclick="toggleColorExclusion('\${colorName}')">
+                      <div class="lights-color-circle" style="background-color: \${colorData.hex}"></div>
+                      <div class="lights-color-label">\${colorName}</div>
+                  </div>
+              \`;
+          }).join('');
+          updateDropdownLabel();
+      }
+
+      window.toggleColorExclusion = function(colorName) {
+          const index = excludedColors.indexOf(colorName);
+          if (index > -1) {
+              excludedColors.splice(index, 1);
+          } else {
+              excludedColors.push(colorName);
+          }
+          localStorage.setItem('cowboyExcludedColors', JSON.stringify(excludedColors));
+          initializeColorExclusion();
+      }
+
+      window.selectAllColors = function() {
+          excludedColors = [];
+          localStorage.setItem('cowboyExcludedColors', JSON.stringify(excludedColors));
+          initializeColorExclusion();
+      }
+
+      window.selectNoneColors = function() {
+          excludedColors = Object.keys(remoteColors);
+          localStorage.setItem('cowboyExcludedColors', JSON.stringify(excludedColors));
+          initializeColorExclusion();
+      }
+
+      window.selectWarmColors = function() {
+          excludedColors = Object.keys(remoteColors).filter(colorName => 
+              remoteColors[colorName].temp !== 'warm'
+          );
+          localStorage.setItem('cowboyExcludedColors', JSON.stringify(excludedColors));
+          initializeColorExclusion();
+      }
+
+      window.selectCoolColors = function() {
+          excludedColors = Object.keys(remoteColors).filter(colorName => 
+              remoteColors[colorName].temp !== 'cool'
+          );
+          localStorage.setItem('cowboyExcludedColors', JSON.stringify(excludedColors));
+          initializeColorExclusion();
+      }
+
+      function getMatchingRemoteColor(stageColors) {
+          const exactMatches = [];
+          stageColors.forEach(stageColor => {
+              if (colorMapping[stageColor]) {
+                  const matchedColor = colorMapping[stageColor];
+                  if (!excludedColors.includes(matchedColor)) {
+                      exactMatches.push(matchedColor);
+                  }
+              }
+          });
+          
+          if (exactMatches.length > 0) {
+              return exactMatches[Math.floor(Math.random() * exactMatches.length)];
+          }
+          
+          const availableColors = Object.keys(remoteColors).filter(color => 
+              !excludedColors.includes(color)
+          );
+          
+          if (availableColors.length > 0) {
+              return availableColors[Math.floor(Math.random() * availableColors.length)];
+          }
+          
+          return 'White';
+      }
+
+      window.generateColorCombo = function() {
+          let filteredPresets = Object.keys(stagePresets).map(Number);
+          
+          if (currentFilter === 'warm') {
+              filteredPresets = filteredPresets.filter(preset => 
+                  stagePresets[preset].temperature === 'warm'
+              );
+          } else if (currentFilter === 'cool') {
+              filteredPresets = filteredPresets.filter(preset => 
+                  stagePresets[preset].temperature === 'cool'
+              );
+          } else if (currentFilter !== 'all') {
+              filteredPresets = filteredPresets.filter(preset => 
+                  stagePresets[preset].category === currentFilter
+              );
+          }
+          
+          const recentPresets = recentCombinations.map(combo => combo.preset);
+          let availablePresets = filteredPresets.filter(preset => 
+              !recentPresets.slice(0, 5).includes(preset)
+          );
+          
+          if (availablePresets.length === 0) {
+              availablePresets = filteredPresets;
+          }
+          
+          if (availablePresets.length === 0) {
+              availablePresets = Object.keys(stagePresets).map(Number);
+          }
+          
+          const selectedPreset = availablePresets[Math.floor(Math.random() * availablePresets.length)];
+          const presetData = stagePresets[selectedPreset];
+          const remoteColorName = getMatchingRemoteColor(presetData.colors);
+          
+          const newCombo = {
+              preset: selectedPreset,
+              presetName: presetData.name,
+              presetColors: presetData.colors,
+              remoteColor: remoteColorName,
+              remoteColorHex: remoteColors[remoteColorName].hex,
+              category: presetData.category,
+              temperature: presetData.temperature,
+              timestamp: new Date().toLocaleString(),
+              id: Date.now()
+          };
+          
+          recentCombinations.unshift(newCombo);
+          
+          if (recentCombinations.length > 10) {
+              recentCombinations = recentCombinations.slice(0, 10);
+          }
+          
+          localStorage.setItem('cowboyLightHistory', JSON.stringify(recentCombinations));
+          
+          displayCurrentCombo(newCombo);
+          updateHistoryDisplay();
+      }
+
+      function displayCurrentCombo(combo) {
+          const comboDiv = document.getElementById('currentCombo');
+          const stagePreset = document.getElementById('stagePreset');
+          const remoteColor = document.getElementById('remoteColor');
+          const mainBtn = document.getElementById('mainGenerateBtn');
+          
+          comboDiv.style.display = 'block';
+          mainBtn.style.display = 'none';
+          
+          stagePreset.innerHTML = \`
+              <div class="lights-preset-info">
+                  <div class="lights-preset-number">Preset #\${combo.preset}</div>
+                  <div class="lights-preset-pattern">\${combo.presetName}</div>
+                  <div class="lights-preset-colors">
+                      \${combo.presetColors.map(color => \`
+                          <div class="lights-preset-color" style="background-color: \${color}"></div>
+                      \`).join('')}
+                  </div>
+              </div>
+          \`;
+          
+          remoteColor.innerHTML = \`
+              <div class="lights-remote-color">
+                  <div class="lights-remote-color-display" style="background-color: \${combo.remoteColorHex}"></div>
+                  <div class="lights-color-name">\${combo.remoteColor}</div>
+              </div>
+          \`;
+          
+          if (recentCombinations.length === 1) {
+              comboDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+      }
+
+      function updateHistoryDisplay() {
+          const historyList = document.getElementById('historyList');
+          
+          if (recentCombinations.length === 0) {
+              historyList.innerHTML = '<p style="color: #999; font-style: italic;">No recent combinations yet. Generate your first coordination!</p>';
+              return;
+          }
+          
+          historyList.innerHTML = recentCombinations.map(combo => \`
+              <div class="lights-history-item">
+                  <div class="lights-history-preset">🎭 Stage: Preset #\${combo.preset} - \${combo.presetName} <span style="color: #999;">(\${combo.category}\${combo.temperature ? \`, \${combo.temperature}\` : ''})</span></div>
+                  <div class="lights-history-remote">📱 Sign: \${combo.remoteColor}</div>
+                  <div class="lights-timestamp">\${combo.timestamp}</div>
+              </div>
+          \`).join('');
+      }
+
+      window.clearHistory = function() {
+          if (confirm('Are you sure you want to clear the coordination history?')) {
+              recentCombinations = [];
+              localStorage.removeItem('cowboyLightHistory');
+              updateHistoryDisplay();
+          }
+      }
+
+      // Initialize display when the component loads
+      setTimeout(() => {
+          updateHistoryDisplay();
+          initializeColorExclusion();
+      }, 100);
+    `
+    document.head.appendChild(scriptElement)
+
     return () => {
       document.head.removeChild(styleElement)
+      document.head.removeChild(scriptElement)
     }
   }, [])
 
@@ -569,526 +872,6 @@ export default function LightsPage() {
           </div>
         </div>
       </div>
-
-      {/* Inject the JavaScript functionality */}
-      <script dangerouslySetInnerHTML={{
-        __html: `
-          // Stage light presets from the hub (based on your image)
-          const stagePresets = {
-              1: { name: "Red-Yellow-Red", colors: ["#FF0000", "#FFD700", "#FF0000"], category: "static", temperature: "warm" },
-              2: { name: "White-Red-White-Red (Random Yellow)", colors: ["#FFFFFF", "#FF0000", "#FFFFFF", "#FF0000"], category: "static", temperature: "mixed" },
-              3: { name: "All Green", colors: ["#00AA00"], category: "static", temperature: "cool" },
-              4: { name: "Red-White-Blue-White-Red", colors: ["#FF0000", "#FFFFFF", "#0066FF", "#FFFFFF", "#FF0000"], category: "static", temperature: "mixed" },
-              5: { name: "All Purple", colors: ["#8A2BE2"], category: "static", temperature: "cool" },
-              6: { name: "Blue-Yellow-Blue-Yellow-Blue", colors: ["#0066FF", "#FFD700", "#0066FF", "#FFD700", "#0066FF"], category: "static", temperature: "mixed" },
-              7: { name: "Teal-Red-Teal-Red", colors: ["#20B2AA", "#FF0000", "#20B2AA", "#FF0000"], category: "static", temperature: "mixed" },
-              13: { name: "All Red (Motion)", colors: ["#FF0000"], category: "motion", temperature: "warm" },
-              14: { name: "White-Red-White-Red (Random Yellow)", colors: ["#FFFFFF", "#FF0000", "#FFFFFF", "#FF0000"], category: "motion", temperature: "mixed" },
-              15: { name: "All Green Motion", colors: ["#00AA00"], category: "motion", temperature: "cool" },
-              16: { name: "Red-White-Blue-White-Red (Motion)", colors: ["#FF0000", "#FFFFFF", "#0066FF", "#FFFFFF", "#FF0000"], category: "motion", temperature: "mixed" },
-              17: { name: "Purple-Teal-Purple (Motion)", colors: ["#8A2BE2", "#20B2AA", "#8A2BE2"], category: "motion", temperature: "cool" },
-              18: { name: "Blue-Yellow-Blue (Motion)", colors: ["#0066FF", "#FFD700", "#0066FF"], category: "motion", temperature: "mixed" },
-              19: { name: "Teal-Red-Teal-Red-Teal (Motion)", colors: ["#20B2AA", "#FF0000", "#20B2AA", "#FF0000", "#20B2AA"], category: "motion", temperature: "mixed" },
-              25: { name: "All White Dim", colors: ["#E6E6E6"], category: "special", temperature: "neutral" },
-              37: { name: "All White Bright", colors: ["#FFFFFF"], category: "special", temperature: "neutral" },
-              44: { name: "Fast Strobe (Stage Facing Off)", colors: ["#FFFFFF"], category: "strobe", temperature: "neutral" },
-              45: { name: "Slow Strobe (Stage Facing Off)", colors: ["#FFFFFF"], category: "strobe", temperature: "neutral" },
-              46: { name: "Random Slow Strobe", colors: ["#FF0000", "#0066FF", "#00AA00", "#FFD700"], category: "strobe", temperature: "mixed" },
-              47: { name: "Fast Strobe (Stage Facing On)", colors: ["#FFFFFF"], category: "strobe", temperature: "neutral" },
-              48: { name: "Off", colors: ["#000000"], category: "special", temperature: "neutral" }
-          };
-
-          // Remote colors with temperature classification
-          const remoteColors = {
-              'Red': { hex: '#FF0000', temp: 'warm' },
-              'Orange': { hex: '#FF8C00', temp: 'warm' }, 
-              'Yellow': { hex: '#FFD700', temp: 'warm' },
-              'Green': { hex: '#00AA00', temp: 'cool' },
-              'Light Blue': { hex: '#87CEEB', temp: 'cool' },
-              'Blue': { hex: '#0066FF', temp: 'cool' },
-              'Dark Blue': { hex: '#000080', temp: 'cool' },
-              'Purple': { hex: '#8A2BE2', temp: 'cool' },
-              'Pink': { hex: '#FF69B4', temp: 'warm' },
-              'Teal': { hex: '#20B2AA', temp: 'cool' },
-              'Cyan': { hex: '#00FFFF', temp: 'cool' },
-              'White': { hex: '#FFFFFF', temp: 'neutral' }
-          };
-
-          // Remote colors mapped to stage colors for exact matching
-          const colorMapping = {
-              '#FF0000': 'Red',
-              '#FF8C00': 'Orange', 
-              '#FFD700': 'Yellow',
-              '#00AA00': 'Green',
-              '#87CEEB': 'Light Blue',
-              '#0066FF': 'Blue',
-              '#000080': 'Dark Blue',
-              '#8A2BE2': 'Purple',
-              '#FF69B4': 'Pink',
-              '#20B2AA': 'Teal',
-              '#00FFFF': 'Cyan',
-              '#FFFFFF': 'White',
-              '#E6E6E6': 'White', // Dim white maps to white
-              '#000000': 'White'  // Black/off maps to white for contrast
-          };
-
-          let recentCombinations = JSON.parse(localStorage.getItem('cowboyLightHistory') || '[]');
-          let excludedColors = JSON.parse(localStorage.getItem('cowboyExcludedColors') || '[]');
-          let currentFilter = 'all';
-
-          window.setFilter = function(filter) {
-              currentFilter = filter;
-              
-              // Update button states
-              document.querySelectorAll('.lights-filter-btn').forEach(btn => {
-                  btn.classList.remove('active');
-              });
-              event.target.classList.add('active');
-          }
-
-          window.toggleDropdown = function() {
-              const toggle = document.getElementById('dropdownToggle');
-              const content = document.getElementById('dropdownContent');
-              
-              toggle.classList.toggle('open');
-              content.classList.toggle('open');
-              
-              updateDropdownLabel();
-          }
-
-          function updateDropdownLabel() {
-              const label = document.getElementById('dropdownLabel');
-              const excludedCount = excludedColors.length;
-              const totalColors = Object.keys(remoteColors).length;
-              const activeCount = totalColors - excludedCount;
-              
-              if (excludedCount === 0) {
-                  label.textContent = \`All colors active (\${totalColors})\`;
-              } else if (excludedCount === totalColors) {
-                  label.textContent = 'All colors excluded!';
-              } else {
-                  label.textContent = \`\${activeCount} colors active, \${excludedCount} excluded\`;
-              }
-          }
-
-          function initializeColorExclusion() {
-              const grid = document.getElementById('colorExclusionGrid');
-              
-              grid.innerHTML = Object.keys(remoteColors).map(colorName => {
-                  const colorData = remoteColors[colorName];
-                  const isExcluded = excludedColors.includes(colorName);
-                  
-                  return \`
-                      <div class="lights-color-exclusion-btn \${isExcluded ? 'excluded' : ''}" 
-                           onclick="toggleColorExclusion('\${colorName}')">
-                          <div class="lights-color-circle" style="background-color: \${colorData.hex}"></div>
-                          <div class="lights-color-label">\${colorName}</div>
-                      </div>
-                  \`;
-              }).join('');
-              
-              updateDropdownLabel();
-          }
-
-          window.toggleColorExclusion = function(colorName) {
-              const index = excludedColors.indexOf(colorName);
-              
-              if (index > -1) {
-                  // Remove from excluded
-                  excludedColors.splice(index, 1);
-              } else {
-                  // Add to excluded
-                  excludedColors.push(colorName);
-              }
-              
-              localStorage.setItem('cowboyExcludedColors', JSON.stringify(excludedColors));
-              initializeColorExclusion();
-          }
-
-          function getMatchingRemoteColor(stageColors) {
-              // Find exact matches first
-              const exactMatches = [];
-              stageColors.forEach(stageColor => {
-                  if (colorMapping[stageColor]) {
-                      const matchedColor = colorMapping[stageColor];
-                      // Only add if not excluded
-                      if (!excludedColors.includes(matchedColor)) {
-                          exactMatches.push(matchedColor);
-                      }
-                  }
-              });
-              
-              if (exactMatches.length > 0) {
-                  // Return a random exact match
-                  return exactMatches[Math.floor(Math.random() * exactMatches.length)];
-              }
-              
-              // Fallback: find any non-excluded color
-              const availableColors = Object.keys(remoteColors).filter(color => 
-                  !excludedColors.includes(color)
-              );
-              
-              if (availableColors.length > 0) {
-                  return availableColors[Math.floor(Math.random() * availableColors.length)];
-              }
-              
-              // Last resort: return White even if excluded
-              return 'White';
-          }
-
-          window.generateColorCombo = function() {
-              // Filter presets by current category
-              let filteredPresets = Object.keys(stagePresets).map(Number);
-              
-              if (currentFilter === 'warm') {
-                  filteredPresets = filteredPresets.filter(preset => 
-                      stagePresets[preset].temperature === 'warm'
-                  );
-              } else if (currentFilter === 'cool') {
-                  filteredPresets = filteredPresets.filter(preset => 
-                      stagePresets[preset].temperature === 'cool'
-                  );
-              } else if (currentFilter !== 'all') {
-                  filteredPresets = filteredPresets.filter(preset => 
-                      stagePresets[preset].category === currentFilter
-                  );
-              }
-              
-              // Remove recently used presets
-              const recentPresets = recentCombinations.map(combo => combo.preset);
-              let availablePresets = filteredPresets.filter(preset => 
-                  !recentPresets.slice(0, 5).includes(preset) // Avoid last 5 presets
-              );
-              
-              // If no presets available in filter, use all filtered presets
-              if (availablePresets.length === 0) {
-                  availablePresets = filteredPresets;
-              }
-              
-              // If still no presets (weird edge case), fall back to all presets
-              if (availablePresets.length === 0) {
-                  availablePresets = Object.keys(stagePresets).map(Number);
-              }
-              
-              // Pick a random available preset
-              const selectedPreset = availablePresets[Math.floor(Math.random() * availablePresets.length)];
-              const presetData = stagePresets[selectedPreset];
-              
-              // Get exact matching remote color (respecting exclusions)
-              const remoteColorName = getMatchingRemoteColor(presetData.colors);
-              
-              // Store in recent history
-              const newCombo = {
-                  preset: selectedPreset,
-                  presetName: presetData.name,
-                  presetColors: presetData.colors,
-                  remoteColor: remoteColorName,
-                  remoteColorHex: remoteColors[remoteColorName].hex,
-                  category: presetData.category,
-                  temperature: presetData.temperature,
-                  timestamp: new Date().toLocaleString(),
-                  id: Date.now()
-              };
-              
-              recentCombinations.unshift(newCombo);
-              
-              // Keep only last 10 combinations
-              if (recentCombinations.length > 10) {
-                  recentCombinations = recentCombinations.slice(0, 10);
-              }
-              
-              localStorage.setItem('cowboyLightHistory', JSON.stringify(recentCombinations));
-              
-              displayCurrentCombo(newCombo);
-              updateHistoryDisplay();
-          }
-
-          function displayCurrentCombo(combo) {
-              const comboDiv = document.getElementById('currentCombo');
-              const stagePreset = document.getElementById('stagePreset');
-              const remoteColor = document.getElementById('remoteColor');
-              const mainBtn = document.getElementById('mainGenerateBtn');
-              
-              comboDiv.style.display = 'block';
-              mainBtn.style.display = 'none';
-              
-              // Display stage preset
-              stagePreset.innerHTML = \`
-                  <div class="lights-preset-info">
-                      <div class="lights-preset-number">Preset #\${combo.preset}</div>
-                      <div class="lights-preset-pattern">\${combo.presetName}</div>
-                      <div class="lights-preset-colors">
-                          \${combo.presetColors.map(color => \`
-                              <div class="lights-preset-color" style="background-color: \${color}"></div>
-                          \`).join('')}
-                      </div>
-                  </div>
-              \`;
-              
-              // Display remote color
-              remoteColor.innerHTML = \`
-                  <div class="lights-remote-color">
-                      <div class="lights-remote-color-display" style="background-color: \${combo.remoteColorHex}"></div>
-                      <div class="lights-color-name">\${combo.remoteColor}</div>
-                  </div>
-              \`;
-              
-              // Add a first-time user button if no combo exists yet
-              if (recentCombinations.length === 1) {
-                  comboDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-          }
-
-          function updateHistoryDisplay() {
-              const historyList = document.getElementById('historyList');
-              
-              if (recentCombinations.length === 0) {
-                  historyList.innerHTML = '<p style="color: #999; font-style: italic;">No recent combinations yet. Generate your first coordination!</p>';
-                  return;
-              }
-              
-              historyList.innerHTML = recentCombinations.map(combo => \`
-                  <div class="lights-history-item">
-                      <div class="lights-history-preset">🎭 Stage: Preset #\${combo.preset} - \${combo.presetName} <span style="color: #999;">(\${combo.category}\${combo.temperature ? \`, \${combo.temperature}\` : ''})</span></div>
-                      <div class="lights-history-remote">📱 Sign: \${combo.remoteColor}</div>
-                      <div class="lights-timestamp">\${combo.timestamp}</div>
-                  </div>
-              \`).join('');
-          }
-
-          window.clearHistory = function() {
-              if (confirm('Are you sure you want to clear the coordination history?')) {
-                  recentCombinations = [];
-                  localStorage.removeItem('cowboyLightHistory');
-                  updateHistoryDisplay();
-              }
-          }
-
-          // Initialize display when the component loads
-          setTimeout(() => {
-              updateHistoryDisplay();
-              initializeColorExclusion();
-          }, 100);
-        `
-      }} />
-    </div>
-  )
-}.stringify(excludedColors));
-              initializeColorExclusion();
-          }
-
-          window.selectAllColors = function() {
-              excludedColors = [];
-              localStorage.setItem('cowboyExcludedColors', JSON.stringify(excludedColors));
-              initializeColorExclusion();
-          }
-
-          window.selectNoneColors = function() {
-              excludedColors = Object.keys(remoteColors);
-              localStorage.setItem('cowboyExcludedColors', JSON.stringify(excludedColors));
-              initializeColorExclusion();
-          }
-
-          window.selectWarmColors = function() {
-              excludedColors = Object.keys(remoteColors).filter(colorName => 
-                  remoteColors[colorName].temp !== 'warm'
-              );
-              localStorage.setItem('cowboyExcludedColors', JSON.stringify(excludedColors));
-              initializeColorExclusion();
-          }
-
-          window.selectCoolColors = function() {
-              excludedColors = Object.keys(remoteColors).filter(colorName => 
-                  remoteColors[colorName].temp !== 'cool'
-              );
-              localStorage.setItem('cowboyExcludedColors', JSON.stringify(excludedColors));
-              initializeColorExclusion();
-          }
-
-          function getMatchingRemoteColor(stageColors) {
-              // Find exact matches first
-              const exactMatches = [];
-              stageColors.forEach(stageColor => {
-                  if (colorMapping[stageColor]) {
-                      const matchedColor = colorMapping[stageColor];
-                      // Only add if not excluded
-                      if (!excludedColors.includes(matchedColor)) {
-                          exactMatches.push(matchedColor);
-                      }
-                  }
-              });
-              
-              if (exactMatches.length > 0) {
-                  // Return a random exact match
-                  return exactMatches[Math.floor(Math.random() * exactMatches.length)];
-              }
-              
-              // Fallback: find any non-excluded color
-              const availableColors = Object.keys(remoteColors).filter(color => 
-                  !excludedColors.includes(color)
-              );
-              
-              if (availableColors.length > 0) {
-                  return availableColors[Math.floor(Math.random() * availableColors.length)];
-              }
-              
-              // Last resort: return White even if excluded
-              return 'White';
-          }
-
-          window.generateColorCombo = function() {
-              // Filter presets by current category
-              let filteredPresets = Object.keys(stagePresets).map(Number);
-              
-              if (currentFilter === 'warm') {
-                  filteredPresets = filteredPresets.filter(preset => 
-                      stagePresets[preset].temperature === 'warm'
-                  );
-              } else if (currentFilter === 'cool') {
-                  filteredPresets = filteredPresets.filter(preset => 
-                      stagePresets[preset].temperature === 'cool'
-                  );
-              } else if (currentFilter !== 'all') {
-                  filteredPresets = filteredPresets.filter(preset => 
-                      stagePresets[preset].category === currentFilter
-                  );
-              }
-              
-              // Remove recently used presets
-              const recentPresets = recentCombinations.map(combo => combo.preset);
-              let availablePresets = filteredPresets.filter(preset => 
-                  !recentPresets.slice(0, 5).includes(preset) // Avoid last 5 presets
-              );
-              
-              // If no presets available in filter, use all filtered presets
-              if (availablePresets.length === 0) {
-                  availablePresets = filteredPresets;
-              }
-              
-              // If still no presets (weird edge case), fall back to all presets
-              if (availablePresets.length === 0) {
-                  availablePresets = Object.keys(stagePresets).map(Number);
-              }
-              
-              // Pick a random available preset
-              const selectedPreset = availablePresets[Math.floor(Math.random() * availablePresets.length)];
-              const presetData = stagePresets[selectedPreset];
-              
-              // Get exact matching remote color (respecting exclusions)
-              const remoteColorName = getMatchingRemoteColor(presetData.colors);
-              
-              // Store in recent history
-              const newCombo = {
-                  preset: selectedPreset,
-                  presetName: presetData.name,
-                  presetColors: presetData.colors,
-                  remoteColor: remoteColorName,
-                  remoteColorHex: remoteColors[remoteColorName].hex,
-                  category: presetData.category,
-                  temperature: presetData.temperature,
-                  timestamp: new Date().toLocaleString(),
-                  id: Date.now()
-              };
-              
-              recentCombinations.unshift(newCombo);
-              
-              // Keep only last 10 combinations
-              if (recentCombinations.length > 10) {
-                  recentCombinations = recentCombinations.slice(0, 10);
-              }
-              
-              localStorage.setItem('cowboyLightHistory', JSON.stringify(recentCombinations));
-              
-              displayCurrentCombo(newCombo);
-              updateHistoryDisplay();
-          }
-
-          function displayCurrentCombo(combo) {
-              const comboDiv = document.getElementById('currentCombo');
-              const stagePreset = document.getElementById('stagePreset');
-              const remoteColor = document.getElementById('remoteColor');
-              const mainBtn = document.getElementById('mainGenerateBtn');
-              
-              comboDiv.style.display = 'block';
-              mainBtn.style.display = 'none';
-              
-              // Display stage preset
-              stagePreset.innerHTML = \`
-                  <div class="lights-preset-info">
-                      <div class="lights-preset-number">Preset #\${combo.preset}</div>
-                      <div class="lights-preset-pattern">\${combo.presetName}</div>
-                      <div class="lights-preset-colors">
-                          \${combo.presetColors.map(color => \`
-                              <div class="lights-preset-color" style="background-color: \${color}"></div>
-                          \`).join('')}
-                      </div>
-                  </div>
-              \`;
-              
-              // Display remote color
-              remoteColor.innerHTML = \`
-                  <div class="lights-remote-color">
-                      <div class="lights-remote-color-display" style="background-color: \${combo.remoteColorHex}"></div>
-                      <div class="lights-color-name">\${combo.remoteColor}</div>
-                  </div>
-              \`;
-              
-              // Add a first-time user button if no combo exists yet
-              if (recentCombinations.length === 1) {
-                  comboDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-          }
-
-          function updateHistoryDisplay() {
-              const historyList = document.getElementById('historyList');
-              
-              if (recentCombinations.length === 0) {
-                  historyList.innerHTML = '<p style="color: #999; font-style: italic;">No recent combinations yet. Generate your first coordination!</p>';
-                  return;
-              }
-              
-              historyList.innerHTML = recentCombinations.map(combo => \`
-                  <div class="lights-history-item">
-                      <div class="lights-history-preset">🎭 Stage: Preset #\${combo.preset} - \${combo.presetName} <span style="color: #999;">(\${combo.category}\${combo.temperature ? \`, \${combo.temperature}\` : ''})</span></div>
-                      <div class="lights-history-remote">📱 Sign: \${combo.remoteColor}</div>
-                      <div class="lights-timestamp">\${combo.timestamp}</div>
-                  </div>
-              \`).join('');
-          }
-
-          window.clearHistory = function() {
-              if (confirm('Are you sure you want to clear the coordination history?')) {
-                  recentCombinations = [];
-                  localStorage.removeItem('cowboyLightHistory');
-                  updateHistoryDisplay();
-              }
-          }
-
-          // Initialize display when the component loads
-          setTimeout(() => {
-              updateHistoryDisplay();
-              initializeColorExclusion();
-          }, 100);
-        `
-      }} />
-
-      {/* TypeScript interface to extend window object */}
-      <script dangerouslySetInnerHTML={{
-        __html: `
-          // Extend window object for TypeScript
-          if (typeof window !== 'undefined') {
-            window.generateColorCombo = window.generateColorCombo || function() {};
-            window.setFilter = window.setFilter || function() {};
-            window.toggleDropdown = window.toggleDropdown || function() {};
-            window.toggleColorExclusion = window.toggleColorExclusion || function() {};
-            window.selectAllColors = window.selectAllColors || function() {};
-            window.selectNoneColors = window.selectNoneColors || function() {};
-            window.selectWarmColors = window.selectWarmColors || function() {};
-            window.selectCoolColors = window.selectCoolColors || function() {};
-            window.clearHistory = window.clearHistory || function() {};
-          }
-        `
-      }} />
     </div>
   )
 }
