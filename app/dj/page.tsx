@@ -1,4 +1,4 @@
-// app/dj/page.tsx - FIXED VERSION - Manual refresh only
+// app/dj/page.tsx - Mobile-optimized DJ Dashboard
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -98,7 +98,7 @@ export default function DjDashboard() {
     const songId = generateSongId(title, artist)
     const blacklistedSong = { 
       id: songId, 
-      songId: songId,  // ADD THIS LINE
+      songId: songId,
       title, 
       artist 
     }
@@ -157,19 +157,18 @@ export default function DjDashboard() {
     return () => clearInterval(interval)
   }, [])
 
-  // Load data on component mount - REMOVED AUTO-REFRESH
+  // Load data on component mount
   useEffect(() => {
     fetchDjData()
-    // REMOVED: automatic refresh interval
   }, [])
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-pink-500 mx-auto"></div>
-          <h2 className="text-2xl font-bold text-white mt-4">Loading DJ Dashboard...</h2>
-          <p className="text-slate-300 mt-2">Getting the latest requests</p>
+          <div className="animate-spin rounded-full h-16 w-16 sm:h-32 sm:w-32 border-b-2 border-pink-500 mx-auto"></div>
+          <h2 className="text-lg sm:text-2xl font-bold text-white mt-4">Loading DJ Dashboard...</h2>
+          <p className="text-sm sm:text-base text-slate-300 mt-2">Getting the latest requests</p>
         </div>
       </div>
     )
@@ -179,43 +178,45 @@ export default function DjDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
       {/* Header */}
       <div className="bg-slate-800 shadow-lg border-b-4 border-pink-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+            <div className="flex items-center space-x-3 sm:space-x-4">
               <button
-                onClick={() => router.push('/')}
-                className="bg-slate-700 p-2 rounded-lg hover:bg-slate-600 transition-colors"
+                onClick={() => router.push('/dashboard')}
+                className="bg-slate-700 p-2 rounded-lg hover:bg-slate-600 transition-colors touch-manipulation"
               >
-                <ArrowLeftIcon className="h-5 w-5 text-white" />
+                <ArrowLeftIcon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </button>
-              <div className="bg-pink-500 p-3 rounded-lg">
-                <SpeakerWaveIcon className="h-8 w-8 text-white" />
+              <div className="bg-pink-500 p-2 sm:p-3 rounded-lg">
+                <SpeakerWaveIcon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-white">DJ Dashboard</h1>
-                <p className="text-slate-300">Manage song requests and blacklist</p>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">DJ Dashboard</h1>
+                <p className="text-xs sm:text-sm lg:text-base text-slate-300">Manage song requests and blacklist</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
               {lastRefresh && (
-                <div className="text-sm text-slate-400">
+                <div className="text-xs sm:text-sm text-slate-400">
                   Last updated: {lastRefresh.toLocaleTimeString()}
                 </div>
               )}
-              <button
-                onClick={fetchDjData}
-                disabled={isLoading}
-                className="inline-flex items-center px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ArrowPathIcon className={`h-5 w-5 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Logout
-              </button>
+              <div className="flex space-x-2 w-full sm:w-auto">
+                <button
+                  onClick={fetchDjData}
+                  disabled={isLoading}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center px-3 sm:px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base touch-manipulation"
+                >
+                  <ArrowPathIcon className={`h-4 w-4 sm:h-5 sm:w-5 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm sm:text-base touch-manipulation"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -229,7 +230,7 @@ export default function DjDashboard() {
             <span className="block sm:inline">{error}</span>
             <button 
               onClick={() => setError(null)}
-              className="float-right text-red-300 hover:text-red-100"
+              className="float-right text-red-300 hover:text-red-100 touch-manipulation"
             >
               ×
             </button>
@@ -238,7 +239,7 @@ export default function DjDashboard() {
       )}
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         <DjView 
           songRequests={songRequests}
           cooldownSongs={cooldownSongs}
