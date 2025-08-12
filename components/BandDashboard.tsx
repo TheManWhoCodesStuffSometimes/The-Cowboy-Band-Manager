@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MagnifyingGlassIcon, FunnelIcon, SpeakerWaveIcon, ArrowPathIcon, AdjustmentsHorizontalIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
+import { useRouter } from 'next/navigation'
+import { MagnifyingGlassIcon, FunnelIcon, SpeakerWaveIcon, ArrowPathIcon, AdjustmentsHorizontalIcon, ChevronDownIcon, ChevronUpIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { CheckCircleIcon, XCircleIcon, ClockIcon, StarIcon } from '@heroicons/react/24/solid'
 
 interface Band {
@@ -137,6 +138,7 @@ const applyWeightsToBands = (bands: Band[], focus: string): Band[] => {
 }
 
 export default function BandDashboard() {
+  const router = useRouter()
   const [refreshCountdown, setRefreshCountdown] = useState<number>(0)
   const [refreshTimer, setRefreshTimer] = useState<NodeJS.Timeout | null>(null)
   const [bands, setBands] = useState<Band[]>([])
@@ -151,6 +153,7 @@ export default function BandDashboard() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
+  const [showFilters, setShowFilters] = useState(false)
 
   // Internal API URLs (no CORS issues)
   const RETRIEVE_DATA_API = '/api/bands'
@@ -434,11 +437,11 @@ const safeExtractValue = (field: any, fallback: any = null) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-500 mx-auto"></div>
-          <h2 className="text-2xl font-bold text-gray-900 mt-4">Loading Band Data...</h2>
-          <p className="text-gray-600 mt-2">Fetching the latest artist analytics</p>
+          <div className="animate-spin rounded-full h-16 w-16 sm:h-32 sm:w-32 border-b-2 border-orange-500 mx-auto"></div>
+          <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mt-4">Loading Band Data...</h2>
+          <p className="text-sm sm:text-base text-gray-600 mt-2">Fetching the latest artist analytics</p>
         </div>
       </div>
     )
@@ -448,35 +451,41 @@ const safeExtractValue = (field: any, fallback: any = null) => {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
       {/* Header */}
       <div className="bg-white shadow-lg border-b-4 border-orange-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="bg-orange-500 p-3 rounded-lg">
-                <SpeakerWaveIcon className="h-8 w-8 text-white" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+            <div className="flex items-center space-x-3 sm:space-x-4">
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="bg-slate-700 p-2 rounded-lg hover:bg-slate-600 transition-colors touch-manipulation"
+              >
+                <ArrowLeftIcon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+              </button>
+              <div className="bg-orange-500 p-2 sm:p-3 rounded-lg">
+                <SpeakerWaveIcon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Cowboy Band Manager</h1>
-                <p className="text-gray-600">Smart booking decisions for The Cowboy Saloon</p>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Band Manager</h1>
+                <p className="text-xs sm:text-sm lg:text-base text-gray-600">Smart booking decisions for The Cowboy Saloon</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
               {lastRefresh && (
-                <div className="text-sm text-gray-500">
+                <div className="text-xs sm:text-sm text-gray-500">
                   Last updated: {lastRefresh.toLocaleDateString()}
                 </div>
               )}
               <button
-              onClick={refreshBandData}
-              disabled={isRefreshing}
-              className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <ArrowPathIcon className={`h-5 w-5 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-              {isRefreshing && refreshCountdown > 0 
-                ? `Refreshing... ${formatCountdown(refreshCountdown)}` 
-                : isRefreshing 
-                  ? 'Refreshing...' 
-                  : 'Refresh Data'}
-            </button>
+                onClick={refreshBandData}
+                disabled={isRefreshing}
+                className="w-full sm:w-auto inline-flex items-center justify-center px-3 sm:px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base touch-manipulation"
+              >
+                <ArrowPathIcon className={`h-4 w-4 sm:h-5 sm:w-5 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing && refreshCountdown > 0 
+                  ? `Refreshing... ${formatCountdown(refreshCountdown)}` 
+                  : isRefreshing 
+                    ? 'Refreshing...' 
+                    : 'Refresh Data'}
+              </button>
             </div>
           </div>
         </div>
@@ -493,129 +502,147 @@ const safeExtractValue = (field: any, fallback: any = null) => {
       )}
 
       {/* Controls */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          {/* Ranking Focus Selector */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              <AdjustmentsHorizontalIcon className="inline h-5 w-5 mr-2" />
-              Ranking Focus
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              {rankingFocusOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setRankingFocus(option.value)}
-                  className={`p-4 rounded-lg border-2 text-left transition-all ${
-                    rankingFocus === option.value
-                      ? 'border-orange-500 bg-orange-50 text-orange-900'
-                      : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                  }`}
-                >
-                  <div className="text-2xl mb-2">{option.icon}</div>
-                  <div className="font-semibold text-sm">{option.label}</div>
-                  <div className="text-xs text-gray-500 mt-1">{option.description}</div>
-                </button>
-              ))}
-            </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
+          
+          {/* Mobile Filter Toggle */}
+          <div className="block sm:hidden mb-4">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-orange-50 border border-orange-200 rounded-lg text-orange-700 font-medium"
+            >
+              <span className="flex items-center">
+                <FunnelIcon className="h-5 w-5 mr-2" />
+                Filters & Search
+              </span>
+              <ChevronDownIcon className={`h-5 w-5 transform transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            </button>
           </div>
 
-          {/* Search and Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search */}
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search bands..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+          {/* Filters Container */}
+          <div className={`${showFilters ? 'block' : 'hidden'} sm:block`}>
+            {/* Ranking Focus Selector */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                <AdjustmentsHorizontalIcon className="inline h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                Ranking Focus
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
+                {rankingFocusOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setRankingFocus(option.value)}
+                    className={`p-3 sm:p-4 rounded-lg border-2 text-left transition-all touch-manipulation ${
+                      rankingFocus === option.value
+                        ? 'border-orange-500 bg-orange-50 text-orange-900'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    }`}
+                  >
+                    <div className="text-lg sm:text-2xl mb-1 sm:mb-2">{option.icon}</div>
+                    <div className="font-semibold text-xs sm:text-sm">{option.label}</div>
+                    <div className="text-xs text-gray-500 mt-1 hidden sm:block">{option.description}</div>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Recommendation Filter */}
-            <select
-              value={selectedRecommendation}
-              onChange={(e) => setSelectedRecommendation(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            >
-              <option value="all">All Recommendations</option>
-              <option value="BOOK SOON">Book Soon</option>
-              <option value="STRONG CONSIDER">Strong Consider</option>
-              <option value="MAYBE">Maybe</option>
-              <option value="PASS">Pass</option>
-            </select>
+            {/* Search and Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              {/* Search */}
+              <div className="relative sm:col-span-2 lg:col-span-1">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search bands..."
+                  className="w-full pl-8 sm:pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
 
-            {/* Status Filter */}
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            >
-              <option value="all">All Statuses</option>
-              <option value="Not Contacted">Not Contacted</option>
-              <option value="Contacted">Contacted</option>
-              <option value="Negotiating">Negotiating</option>
-              <option value="Booked">Booked</option>
-              <option value="Passed">Passed</option>
-            </select>
+              {/* Recommendation Filter */}
+              <select
+                value={selectedRecommendation}
+                onChange={(e) => setSelectedRecommendation(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 sm:py-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
+              >
+                <option value="all">All Recommendations</option>
+                <option value="BOOK SOON">Book Soon</option>
+                <option value="STRONG CONSIDER">Strong Consider</option>
+                <option value="MAYBE">Maybe</option>
+                <option value="PASS">Pass</option>
+              </select>
 
-            {/* Sort */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'score' | 'name' | 'followers')}
-              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            >
-              <option value="score">Sort by Score</option>
-              <option value="name">Sort by Name</option>
-              <option value="followers">Sort by Followers</option>
-            </select>
+              {/* Status Filter */}
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 sm:py-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
+              >
+                <option value="all">All Statuses</option>
+                <option value="Not Contacted">Not Contacted</option>
+                <option value="Contacted">Contacted</option>
+                <option value="Negotiating">Negotiating</option>
+                <option value="Booked">Booked</option>
+                <option value="Passed">Passed</option>
+              </select>
+
+              {/* Sort */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'score' | 'name' | 'followers')}
+                className="border border-gray-300 rounded-lg px-3 py-2 sm:py-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
+              >
+                <option value="score">Sort by Score</option>
+                <option value="name">Sort by Name</option>
+                <option value="followers">Sort by Followers</option>
+              </select>
+            </div>
           </div>
         </div>
 
         {/* Results */}
-        <div className="grid gap-6">
+        <div className="grid gap-4 sm:gap-6">
           {filteredBands.map((band) => (
             <div key={band.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
               {/* Main Card Content */}
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 {/* Header Row */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between space-y-3 sm:space-y-0 mb-4">
+                  <div className="flex items-start space-x-3">
                     {getStatusIcon(band.bookingStatus)}
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900">{band.name}</h3>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getRecommendationColor(band.recommendation)}`}>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{band.name}</h3>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mt-1 space-y-1 sm:space-y-0">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full border w-fit ${getRecommendationColor(band.recommendation)}`}>
                           {band.recommendation}
                         </span>
-                        <span className="text-sm text-gray-500">{band.bookingStatus}</span>
+                        <span className="text-xs sm:text-sm text-gray-500">{band.bookingStatus}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-3xl font-bold text-orange-600">{band.overallScore}</div>
-                    <div className="text-sm text-gray-500">Overall Score</div>
+                  <div className="text-center sm:text-right flex-shrink-0">
+                    <div className="text-2xl sm:text-3xl font-bold text-orange-600">{band.overallScore}</div>
+                    <div className="text-xs sm:text-sm text-gray-500">Overall Score</div>
                   </div>
                 </div>
 
                 {/* Key Metrics Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  <div className="bg-gray-50 rounded-lg p-3 text-center">
-                    <div className="text-lg font-semibold text-gray-900">{band.spotifyFollowers.toLocaleString()}</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4">
+                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
+                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.spotifyFollowers.toLocaleString()}</div>
                     <div className="text-xs text-gray-500">Spotify Followers</div>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-3 text-center">
-                    <div className="text-lg font-semibold text-gray-900">{band.spotifyPopularity}/100</div>
+                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
+                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.spotifyPopularity}/100</div>
                     <div className="text-xs text-gray-500">Spotify Popularity</div>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-3 text-center">
-                    <div className="text-lg font-semibold text-gray-900">{band.youtubeSubscribers.toLocaleString()}</div>
+                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
+                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.youtubeSubscribers.toLocaleString()}</div>
                     <div className="text-xs text-gray-500">YouTube Subscribers</div>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-3 text-center">
-                    <div className="text-lg font-semibold text-gray-900">{band.averageViewsPerVideo.toLocaleString()}</div>
+                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
+                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.averageViewsPerVideo.toLocaleString()}</div>
                     <div className="text-xs text-gray-500">Avg Views/Video</div>
                   </div>
                 </div>
@@ -623,7 +650,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                 {/* Expand/Collapse Button */}
                 <button
                   onClick={() => toggleCardExpansion(band.id)}
-                  className="w-full flex items-center justify-center space-x-2 py-2 text-sm text-gray-600 hover:text-gray-800 border-t border-gray-200"
+                  className="w-full flex items-center justify-center space-x-2 py-2 sm:py-3 text-sm text-gray-600 hover:text-gray-800 border-t border-gray-200 touch-manipulation"
                 >
                   <span>
                     {expandedCards.has(band.id) ? 'Hide Details' : 'Show Details'}
@@ -638,29 +665,29 @@ const safeExtractValue = (field: any, fallback: any = null) => {
 
               {/* Expanded Details */}
               {expandedCards.has(band.id) && (
-                <div className="border-t border-gray-200 bg-gray-50 p-6">
+                <div className="border-t border-gray-200 bg-gray-50 p-4 sm:p-6">
                   {/* Ranking Scores */}
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Ranking Scores</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                       <div className="text-center">
-                        <div className="text-xl font-semibold text-gray-900">{band.growthMomentumScore}</div>
+                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.growthMomentumScore}</div>
                         <div className="text-xs text-gray-500">Growth Momentum</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xl font-semibold text-gray-900">{band.fanEngagementScore}</div>
+                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.fanEngagementScore}</div>
                         <div className="text-xs text-gray-500">Fan Engagement</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xl font-semibold text-gray-900">{band.digitalPopularityScore}</div>
+                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.digitalPopularityScore}</div>
                         <div className="text-xs text-gray-500">Digital Popularity</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xl font-semibold text-gray-900">{band.livePotentialScore}</div>
+                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.livePotentialScore}</div>
                         <div className="text-xs text-gray-500">Live Potential</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-xl font-semibold text-gray-900">{band.venueFitScore}</div>
+                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.venueFitScore}</div>
                         <div className="text-xs text-gray-500">Venue Fit</div>
                       </div>
                     </div>
@@ -669,21 +696,21 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                   {/* Additional YouTube Stats */}
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">YouTube Analytics</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                       <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-lg font-semibold text-gray-900">{band.youtubeViews.toLocaleString()}</div>
+                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.youtubeViews.toLocaleString()}</div>
                         <div className="text-xs text-gray-500">Total Views</div>
                       </div>
                       <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-lg font-semibold text-gray-900">{band.youtubeVideoCount}</div>
+                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.youtubeVideoCount}</div>
                         <div className="text-xs text-gray-500">Video Count</div>
                       </div>
                       <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-lg font-semibold text-gray-900">{band.estimatedDraw}</div>
+                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.estimatedDraw}</div>
                         <div className="text-xs text-gray-500">Est. Draw</div>
                       </div>
                       <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-lg font-semibold text-gray-900">
+                        <div className="text-sm sm:text-lg font-semibold text-gray-900">
                           {band.youtubeHasVevo ? '✓' : '✗'}
                         </div>
                         <div className="text-xs text-gray-500">VEVO Channel</div>
@@ -692,7 +719,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                   </div>
 
                   {/* Key Strengths & Concerns */}
-                  <div className="grid md:grid-cols-2 gap-6 mb-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-2">Key Strengths</h4>
                       <div className="bg-green-50 border border-green-200 rounded-lg p-3">
@@ -722,31 +749,30 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                   )}
 
                   {/* Actions & Status */}
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                    <div className="flex items-center space-x-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-200 space-y-3 sm:space-y-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                       {band.spotifyUrl && (
                         <a
                           href={band.spotifyUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center px-3 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors"
+                          className="inline-flex items-center justify-center px-3 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors touch-manipulation"
                         >
                           <SpeakerWaveIcon className="h-4 w-4 mr-1" />
                           Listen on Spotify
                         </a>
                       )}
-                      <span className="text-xs text-gray-500">
-                        Confidence: {band.confidenceLevel}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        Analyzed: {new Date(band.dateAnalyzed).toLocaleDateString()}
-                      </span>
+                      <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 space-y-1 sm:space-y-0 sm:space-x-2">
+                        <span>Confidence: {band.confidenceLevel}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span>Analyzed: {new Date(band.dateAnalyzed).toLocaleDateString()}</span>
+                      </div>
                     </div>
                     
                     <select
                       value={band.bookingStatus}
                       onChange={(e) => updateBookingStatus(band.id, e.target.value as Band['bookingStatus'])}
-                      className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      className="w-full sm:w-auto text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     >
                       <option value="Not Contacted">Not Contacted</option>
                       <option value="Contacted">Contacted</option>
@@ -763,10 +789,10 @@ const safeExtractValue = (field: any, fallback: any = null) => {
 
         {/* No Results Message */}
         {filteredBands.length === 0 && (
-          <div className="text-center py-12">
-            <SpeakerWaveIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <div className="text-center py-8 sm:py-12">
+            <SpeakerWaveIcon className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No bands found</h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-gray-500 px-4">
               {bands.length === 0 
                 ? "No band data available. Try clicking 'Refresh Data' to scan for new bands."
                 : "Try adjusting your search or filters."
@@ -777,30 +803,30 @@ const safeExtractValue = (field: any, fallback: any = null) => {
 
         {/* Stats Summary */}
         {filteredBands.length > 0 && (
-          <div className="mt-8 bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Dashboard Summary</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">{filteredBands.length}</div>
-                <div className="text-sm text-gray-500">Total Bands</div>
+          <div className="mt-6 sm:mt-8 bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Dashboard Summary</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold text-orange-600">{filteredBands.length}</div>
+                <div className="text-xs sm:text-sm text-gray-500">Total Bands</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold text-green-600">
                   {filteredBands.filter(b => b.recommendation === 'BOOK SOON').length}
                 </div>
-                <div className="text-sm text-gray-500">Book Soon</div>
+                <div className="text-xs sm:text-sm text-gray-500">Book Soon</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold text-blue-600">
                   {filteredBands.filter(b => b.recommendation === 'STRONG CONSIDER').length}
                 </div>
-                <div className="text-sm text-gray-500">Strong Consider</div>
+                <div className="text-xs sm:text-sm text-gray-500">Strong Consider</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-gray-600">
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold text-gray-600">
                   {filteredBands.filter(b => b.bookingStatus === 'Booked').length}
                 </div>
-                <div className="text-sm text-gray-500">Booked</div>
+                <div className="text-xs sm:text-sm text-gray-500">Booked</div>
               </div>
             </div>
           </div>
