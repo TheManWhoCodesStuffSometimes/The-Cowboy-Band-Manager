@@ -1,4 +1,4 @@
-// app/lights/page.tsx - REDESIGNED TO MATCH APP THEME
+// app/lights/page.tsx - REDESIGNED TO MATCH APP THEME (FIXED)
 'use client'
 
 import { useEffect } from 'react'
@@ -24,6 +24,158 @@ export default function LightsPage() {
   const router = useRouter()
 
   useEffect(() => {
+    // Inject CSS styles
+    const styleElement = document.createElement('style')
+    styleElement.textContent = `
+      .filter-btn.active {
+        background-color: #3B82F6 !important;
+        color: white !important;
+      }
+      
+      .dropdown-toggle.open .dropdown-arrow {
+        transform: rotate(180deg);
+      }
+      
+      .dropdown-content.open {
+        display: block !important;
+      }
+      
+      .color-exclusion-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: white;
+      }
+      
+      .color-exclusion-btn:hover {
+        transform: scale(1.05);
+        border-color: #3B82F6;
+      }
+      
+      .color-exclusion-btn.excluded {
+        border-color: #EF4444;
+        background: #FEF2F2;
+        opacity: 0.6;
+      }
+      
+      .color-exclusion-btn.excluded .color-circle::after {
+        content: '✕';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #EF4444;
+        font-weight: bold;
+        font-size: 16px;
+      }
+      
+      .color-circle {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 2px solid #E5E7EB;
+        margin-bottom: 4px;
+        position: relative;
+      }
+      
+      .color-label {
+        font-size: 12px;
+        text-align: center;
+        color: #374151;
+        font-weight: 500;
+      }
+      
+      .preset-info {
+        background: linear-gradient(to bottom right, #DBEAFE, #BFDBFE);
+        padding: 16px;
+        border-radius: 12px;
+        border-left: 4px solid #3B82F6;
+      }
+      
+      .preset-number {
+        font-size: 24px;
+        font-weight: bold;
+        color: #1E40AF;
+        margin-bottom: 8px;
+      }
+      
+      .preset-pattern {
+        font-size: 16px;
+        color: #374151;
+        margin-bottom: 12px;
+        font-weight: 600;
+      }
+      
+      .preset-colors {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      
+      .preset-color {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 2px solid #E5E7EB;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      .remote-color {
+        background: linear-gradient(to bottom right, #EEF2FF, #E0E7FF);
+        padding: 16px;
+        border-radius: 12px;
+        border-left: 4px solid #6366F1;
+        text-align: center;
+      }
+      
+      .remote-color-display {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        margin: 12px auto;
+        border: 3px solid #E5E7EB;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      }
+      
+      .color-name {
+        font-size: 18px;
+        font-weight: bold;
+        color: #374151;
+        margin-top: 8px;
+      }
+      
+      .history-item {
+        background: #F9FAFB;
+        padding: 16px;
+        border-radius: 8px;
+        border-left: 3px solid #3B82F6;
+        margin-bottom: 12px;
+      }
+      
+      .history-preset {
+        color: #1E40AF;
+        font-weight: bold;
+        margin-bottom: 4px;
+      }
+      
+      .history-remote {
+        color: #6366F1;
+        font-weight: bold;
+        margin-bottom: 4px;
+      }
+      
+      .timestamp {
+        font-size: 14px;
+        color: #6B7280;
+      }
+    `
+    document.head.appendChild(styleElement)
+
     // Inject the JavaScript functionality
     const scriptElement = document.createElement('script')
     scriptElement.innerHTML = `
@@ -267,6 +419,7 @@ export default function LightsPage() {
           const mainBtn = document.getElementById('mainGenerateBtn');
           
           comboDiv.style.display = 'block';
+          comboDiv.classList.remove('hidden');
           mainBtn.style.display = 'none';
           
           stagePreset.innerHTML = \`
@@ -327,6 +480,7 @@ export default function LightsPage() {
     document.head.appendChild(scriptElement)
 
     return () => {
+      document.head.removeChild(styleElement)
       document.head.removeChild(scriptElement)
     }
   }, [])
@@ -413,8 +567,8 @@ export default function LightsPage() {
             <button className="filter-btn active bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors" onClick={() => window.setFilter('all')}>All Presets</button>
             <button className="filter-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors" onClick={() => window.setFilter('motion')}>Motion Only</button>
             <button className="filter-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors" onClick={() => window.setFilter('static')}>Static Colors</button>
-            <button className="filter-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors" onClick={() => window.setFilter('strobe')">Strobe Effects</button>
-            <button className="filter-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors" onClick={() => window.setFilter('special')">Special Effects</button>
+            <button className="filter-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors" onClick={() => window.setFilter('strobe')}>Strobe Effects</button>
+            <button className="filter-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors" onClick={() => window.setFilter('special')}>Special Effects</button>
             <button className="filter-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors" onClick={() => window.setFilter('warm')}>🔥 Warm Colors</button>
             <button className="filter-btn bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors" onClick={() => window.setFilter('cool')}>❄️ Cool Colors</button>
           </div>
@@ -461,155 +615,6 @@ export default function LightsPage() {
           </div>
         </div>
       </div>
-
-      {/* CSS Styles */}
-      <style jsx>{`
-        .filter-btn.active {
-          background-color: #3B82F6 !important;
-          color: white !important;
-        }
-        
-        .dropdown-toggle.open .dropdown-arrow {
-          transform: rotate(180deg);
-        }
-        
-        .dropdown-content.open {
-          display: block !important;
-        }
-        
-        .color-exclusion-btn {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 8px;
-          border: 2px solid transparent;
-          border-radius: 8px;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          background: white;
-        }
-        
-        .color-exclusion-btn:hover {
-          transform: scale(1.05);
-          border-color: #3B82F6;
-        }
-        
-        .color-exclusion-btn.excluded {
-          border-color: #EF4444;
-          background: #FEF2F2;
-          opacity: 0.6;
-        }
-        
-        .color-exclusion-btn.excluded .color-circle::after {
-          content: '✕';
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          color: #EF4444;
-          font-weight: bold;
-          font-size: 16px;
-        }
-        
-        .color-circle {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          border: 2px solid #E5E7EB;
-          margin-bottom: 4px;
-          position: relative;
-        }
-        
-        .color-label {
-          font-size: 12px;
-          text-align: center;
-          color: #374151;
-          font-weight: 500;
-        }
-        
-        .preset-info {
-          background: linear-gradient(to br, #DBEAFE, #BFDBFE);
-          padding: 16px;
-          border-radius: 12px;
-          border-left: 4px solid #3B82F6;
-        }
-        
-        .preset-number {
-          font-size: 24px;
-          font-weight: bold;
-          color: #1E40AF;
-          margin-bottom: 8px;
-        }
-        
-        .preset-pattern {
-          font-size: 16px;
-          color: #374151;
-          margin-bottom: 12px;
-          font-weight: 600;
-        }
-        
-        .preset-colors {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        
-        .preset-color {
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          border: 2px solid #E5E7EB;
-          shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .remote-color {
-          background: linear-gradient(to br, #EEF2FF, #E0E7FF);
-          padding: 16px;
-          border-radius: 12px;
-          border-left: 4px solid #6366F1;
-          text-align: center;
-        }
-        
-        .remote-color-display {
-          width: 64px;
-          height: 64px;
-          border-radius: 50%;
-          margin: 12px auto;
-          border: 3px solid #E5E7EB;
-          shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        
-        .color-name {
-          font-size: 18px;
-          font-weight: bold;
-          color: #374151;
-          margin-top: 8px;
-        }
-        
-        .history-item {
-          background: #F9FAFB;
-          padding: 16px;
-          border-radius: 8px;
-          border-left: 3px solid #3B82F6;
-        }
-        
-        .history-preset {
-          color: #1E40AF;
-          font-weight: bold;
-          margin-bottom: 4px;
-        }
-        
-        .history-remote {
-          color: #6366F1;
-          font-weight: bold;
-          margin-bottom: 4px;
-        }
-        
-        .timestamp {
-          font-size: 14px;
-          color: #6B7280;
-        }
-      `}</style>
     </div>
   )
 }
