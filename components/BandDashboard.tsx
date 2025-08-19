@@ -177,6 +177,43 @@ export default function BandDashboard() {
   const RETRIEVE_DATA_API = '/api/bands'
   const REFRESH_DATA_API = '/api/bands/refresh'
 
+  // NEW: Helper functions for real-time cost effectiveness analysis
+  const updateLocalCostEstimate = (bandId: string, cost: number) => {
+    setLocalCostEstimates(prev => ({
+      ...prev,
+      [bandId]: cost
+    }))
+  }
+
+  const getEffectiveCost = (band: Band): number => {
+    return localCostEstimates[band.id] || 0
+  }
+
+  const calculateCostEffectiveness = (cost: number, estimatedDraw: string): number => {
+    if (!cost || cost <= 0) return 0
+    
+    // Parse estimated draw to get a number (e.g., "150-200" -> 175)
+    const drawMatch = estimatedDraw.match(/(\d+)/)
+    if (!drawMatch) return 0
+    
+    const draw = parseInt(drawMatch[1])
+    if (draw <= 0) return 0
+    
+    // Cost effectiveness formula: (Expected Draw / Cost) * 100
+    // Higher draw per dollar = better cost effectiveness
+    const effectiveness = Math.min((draw / cost) * 1000, 100) // Scale and cap at 100
+    return Math.round(effectiveness)
+  }
+
+  const getCostEffectivenessLabel = (score: number): { label: string; color: string } => {
+    if (score >= 80) return { label: 'Excellent Value', color: 'bg-green-100 text-green-800 border-green-300' }
+    if (score >= 60) return { label: 'Good Value', color: 'bg-blue-100 text-blue-800 border-blue-300' }
+    if (score >= 40) return { label: 'Fair Value', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' }
+    if (score >= 20) return { label: 'Poor Value', color: 'bg-orange-100 text-orange-800 border-orange-300' }
+    if (score > 0) return { label: 'Very Poor Value', color: 'bg-red-100 text-red-800 border-red-300' }
+    return { label: 'Enter Cost', color: 'bg-gray-100 text-gray-600 border-gray-300' }
+  }
+
   // Improved helper function to safely extract values from complex Airtable objects
 const safeExtractValue = (field: any, fallback: any = null) => {
   if (field === null || field === undefined) return fallback
