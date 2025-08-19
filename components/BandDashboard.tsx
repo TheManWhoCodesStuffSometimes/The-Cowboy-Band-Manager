@@ -9,12 +9,14 @@ interface Band {
   id: string
   name: string
   overallScore: number
-  // Raw ranking metrics (0-100)
+  // Enhanced ranking metrics (0-100) - now 7 components instead of 5
   growthMomentumScore: number
   fanEngagementScore: number
   digitalPopularityScore: number
   livePotentialScore: number
   venueFitScore: number
+  geographicFitScore: number      // NEW - geographic proximity and touring fit
+  costEffectivenessScore: number  // NEW - cost vs expected draw value
   recommendation: 'BOOK SOON' | 'STRONG CONSIDER' | 'MAYBE' | 'PASS'
   spotifyFollowers: number
   spotifyPopularity: number
@@ -80,44 +82,56 @@ interface RankingWeights {
   digitalPopularity: number
   livePotential: number
   venueFit: number
+  geographicFit: number      // NEW
+  costEffectiveness: number  // NEW
 }
 
-// Weighting matrices for each ranking focus. Values should total 1.0.
+// Updated weighting matrices for 7-component scoring system
 const rankingWeights: Record<string, RankingWeights> = {
   hidden_gems: {
-    growthMomentum: 0.35,
-    fanEngagement: 0.25,
+    growthMomentum: 0.25,      // Reduced from 0.35 to make room for new components
+    fanEngagement: 0.25,       // Increased importance
     digitalPopularity: 0.15,
-    livePotential: 0.10,
-    venueFit: 0.15
+    livePotential: 0.15,       // Increased from 0.10
+    venueFit: 0.20,           // Increased from 0.15
+    geographicFit: 0.10,      // NEW - moderate importance for hidden gems
+    costEffectiveness: 0.10    // NEW - value discovery important
   },
   genre_fit: {
-    growthMomentum: 0.10,
-    fanEngagement: 0.20,
+    growthMomentum: 0.08,
+    fanEngagement: 0.22,       // Increased (vibe correlation)
     digitalPopularity: 0.05,
-    livePotential: 0.15,
-    venueFit: 0.50
+    livePotential: 0.18,       // Increased from 0.15
+    venueFit: 0.35,           // Still primary but reduced from 0.50
+    geographicFit: 0.12,      // NEW - regional fit matters for genre
+    costEffectiveness: 0.10    // NEW
   },
   proven_draw: {
-    growthMomentum: 0.10,
+    growthMomentum: 0.05,      // Reduced from 0.10
     fanEngagement: 0.20,
-    digitalPopularity: 0.30,
-    livePotential: 0.35,
-    venueFit: 0.05
+    digitalPopularity: 0.20,   // Reduced from 0.30
+    livePotential: 0.25,       // Reduced from 0.35
+    venueFit: 0.15,           // Increased from 0.05
+    geographicFit: 0.10,      // NEW - touring reach important
+    costEffectiveness: 0.15    // NEW - cost critical for expensive acts
   },
   local_buzz: {
     growthMomentum: 0.20,
-    fanEngagement: 0.30,
+    fanEngagement: 0.25,       // Reduced from 0.30
     digitalPopularity: 0.05,
     livePotential: 0.10,
-    venueFit: 0.35
+    venueFit: 0.25,           // Reduced from 0.35
+    geographicFit: 0.15,      // NEW - very important for local acts
+    costEffectiveness: 0.10    // NEW
   },
   rising_stars: {
-    growthMomentum: 0.45,
+    growthMomentum: 0.35,      // Reduced from 0.45
     fanEngagement: 0.15,
-    digitalPopularity: 0.25,
+    digitalPopularity: 0.20,   // Reduced from 0.25
     livePotential: 0.10,
-    venueFit: 0.05
+    venueFit: 0.05,
+    geographicFit: 0.05,      // NEW - less important for rising stars
+    costEffectiveness: 0.10    // NEW - value important before they get expensive
   }
 }
 
@@ -132,7 +146,9 @@ const applyWeightsToBands = (bands: Band[], focus: string): Band[] => {
       band.fanEngagementScore * weights.fanEngagement +
       band.digitalPopularityScore * weights.digitalPopularity +
       band.livePotentialScore * weights.livePotential +
-      band.venueFitScore * weights.venueFit
+      band.venueFitScore * weights.venueFit +
+      band.geographicFitScore * weights.geographicFit +           // NEW
+      band.costEffectivenessScore * weights.costEffectiveness    // NEW
     )
   }))
 }
@@ -154,6 +170,8 @@ export default function BandDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [showFilters, setShowFilters] = useState(false)
+  // NEW: Local cost estimates for real-time cost effectiveness analysis
+  const [localCostEstimates, setLocalCostEstimates] = useState<Record<string, number>>({})
 
   // Internal API URLs (no CORS issues)
   const RETRIEVE_DATA_API = '/api/bands'
@@ -198,6 +216,8 @@ const safeExtractValue = (field: any, fallback: any = null) => {
         digitalPopularityScore: Number(safeExtractValue(record['Digital Popularity Score'] || record['Digital Popularity'] || record.digitalPopularityScore, 0)) || 0,
         livePotentialScore: Number(safeExtractValue(record['Live Potential Score'] || record.livePotentialScore, 0)) || 0,
         venueFitScore: Number(safeExtractValue(record['Venue Fit Score'] || record.venueFitScore, 0)) || 0,
+        geographicFitScore: Number(safeExtractValue(record['Geographic Fit Score'] || record.geographicFitScore, 0)) || 0,  // NEW
+        costEffectivenessScore: Number(safeExtractValue(record['Cost Effectiveness Score'] || record.costEffectivenessScore, 0)) || 0,  // NEW
         recommendation: safeExtractValue(record['Recommendation Level'] || record.recommendation, 'MAYBE') as 'BOOK SOON' | 'STRONG CONSIDER' | 'MAYBE' | 'PASS',
         spotifyFollowers: Number(safeExtractValue(record['Spotify Followers'] || record.spotifyFollowers, 0)) || 0,
         spotifyPopularity: Number(safeExtractValue(record['Spotify Popularity Score'] || record.spotifyPopularity, 0)) || 0,
@@ -217,7 +237,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
         aiAnalysisNotes: safeExtractValue(record['AI Analysis Notes'] || record.aiAnalysisNotes, 'No analysis notes available')
       }
       
-      console.log(`✅ Transformed band: ${band.name} (Score components: G:${band.growthMomentumScore}, F:${band.fanEngagementScore}, D:${band.digitalPopularityScore}, L:${band.livePotentialScore}, V:${band.venueFitScore})`)
+      console.log(`✅ Transformed band: ${band.name} (Score components: G:${band.growthMomentumScore}, F:${band.fanEngagementScore}, D:${band.digitalPopularityScore}, L:${band.livePotentialScore}, V:${band.venueFitScore}, Geo:${band.geographicFitScore}, Cost:${band.costEffectivenessScore})`)
       
       return band
     })
@@ -627,7 +647,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                   </div>
                 </div>
 
-                {/* Key Metrics Grid */}
+                {/* Key Metrics Grid with Cost Effectiveness Input */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4">
                   <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
                     <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.spotifyFollowers.toLocaleString()}</div>
@@ -644,6 +664,49 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                   <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
                     <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.averageViewsPerVideo.toLocaleString()}</div>
                     <div className="text-xs text-gray-500">Avg Views/Video</div>
+                  </div>
+                </div>
+
+                {/* Cost Effectiveness Analysis Section */}
+                <div className="mb-4 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h4 className="text-sm font-medium text-blue-900 mb-3">💰 Cost Effectiveness Analysis</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 items-end">
+                    <div>
+                      <label className="block text-xs font-medium text-blue-700 mb-1">Quote from Artist ($)</label>
+                      <input
+                        type="number"
+                        placeholder="Enter quote..."
+                        value={localCostEstimates[band.id] || ''}
+                        onChange={(e) => updateLocalCostEstimate(band.id, Number(e.target.value))}
+                        className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs text-blue-700 mb-1">Est. Draw: {band.estimatedDraw}</div>
+                      <div className="text-xs text-blue-600">
+                        {getEffectiveCost(band) > 0 && (
+                          <span>Cost per attendee: ${Math.round(getEffectiveCost(band) / (parseInt(band.estimatedDraw.match(/(\d+)/)?.[1] || '1') || 1))}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      {(() => {
+                        const effectiveCost = getEffectiveCost(band)
+                        const costScore = calculateCostEffectiveness(effectiveCost, band.estimatedDraw)
+                        const { label, color } = getCostEffectivenessLabel(costScore)
+                        return (
+                          <div>
+                            <div className="text-xs text-blue-700 mb-1">Value Rating</div>
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${color}`}>
+                              {label}
+                            </span>
+                            {effectiveCost > 0 && (
+                              <div className="text-xs text-blue-600 mt-1">Score: {costScore}/100</div>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </div>
                   </div>
                 </div>
 
@@ -666,29 +729,37 @@ const safeExtractValue = (field: any, fallback: any = null) => {
               {/* Expanded Details */}
               {expandedCards.has(band.id) && (
                 <div className="border-t border-gray-200 bg-gray-50 p-4 sm:p-6">
-                  {/* Ranking Scores */}
+                  {/* Enhanced Ranking Scores - Now 7 components */}
                   <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Ranking Scores</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Ranking Scores (7-Component System)</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 sm:gap-4">
                       <div className="text-center">
                         <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.growthMomentumScore}</div>
-                        <div className="text-xs text-gray-500">Growth Momentum</div>
+                        <div className="text-xs text-gray-500">Growth</div>
                       </div>
                       <div className="text-center">
                         <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.fanEngagementScore}</div>
-                        <div className="text-xs text-gray-500">Fan Engagement</div>
+                        <div className="text-xs text-gray-500">Engagement</div>
                       </div>
                       <div className="text-center">
                         <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.digitalPopularityScore}</div>
-                        <div className="text-xs text-gray-500">Digital Popularity</div>
+                        <div className="text-xs text-gray-500">Digital</div>
                       </div>
                       <div className="text-center">
                         <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.livePotentialScore}</div>
-                        <div className="text-xs text-gray-500">Live Potential</div>
+                        <div className="text-xs text-gray-500">Live</div>
                       </div>
                       <div className="text-center">
                         <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.venueFitScore}</div>
                         <div className="text-xs text-gray-500">Venue Fit</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg sm:text-xl font-semibold text-blue-600">{band.geographicFitScore}</div>
+                        <div className="text-xs text-blue-500 font-medium">Geographic</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg sm:text-xl font-semibold text-green-600">{band.costEffectivenessScore}</div>
+                        <div className="text-xs text-green-500 font-medium">Cost Value</div>
                       </div>
                     </div>
                   </div>
