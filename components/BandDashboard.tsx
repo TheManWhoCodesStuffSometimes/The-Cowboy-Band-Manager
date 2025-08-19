@@ -173,6 +173,8 @@ export default function BandDashboard() {
   const [showFilters, setShowFilters] = useState(false)
   // NEW: Local cost estimates for real-time cost effectiveness analysis
   const [localCostEstimates, setLocalCostEstimates] = useState<Record<string, number>>({})
+  // NEW: Local draw estimates for real-time audience projections
+  const [localDrawEstimates, setLocalDrawEstimates] = useState<Record<string, number>>({})
 
   // Internal API URLs (no CORS issues)
   const RETRIEVE_DATA_API = '/api/bands'
@@ -185,12 +187,65 @@ export default function BandDashboard() {
       [bandId]: cost
     }))
     
+    // Get effective draw for calculation
+    const effectiveDraw = getEffectiveDraw(bands.find(b => b.id === bandId)!)
+    
     // Immediately recalculate and update the band's scores
     setBands(prevBands => {
       const updatedBands = prevBands.map(band => {
         if (band.id === bandId) {
-          // Calculate new cost effectiveness score
-          const newCostEffectivenessScore = calculateCostEffectiveness(cost, band.estimatedDraw)
+          // Calculate new cost effectiveness score using effective draw
+          const newCostEffectivenessScore = calculateCostEffectivenessWithDraw(cost, effectiveDraw)
+          
+          // Create updated band with new cost effectiveness score
+          const updatedBand = {
+            ...band,
+            costEffectivenessScore: newCostEffectivenessScore
+          }
+          
+          // Recalculate overall score with current ranking weights
+          const weights = rankingWeights[rankingFocus]
+          if (weights) {
+            updatedBand.overallScore = Math.round(
+              updatedBand.growthMomentumScore * weights.growthMomentum +
+              updatedBand.fanEngagementScore * weights.fanEngagement +
+              updatedBand.digitalPopularityScore * weights.digitalPopularity +
+              updatedBand.livePotentialScore * weights.livePotential +
+              updatedBand.venueFitScore * weights.venueFit +
+              updatedBand.geographicFitScore * weights.geographicFit +
+              updatedBand.costEffectivenessScore * weights.costEffectiveness
+            )
+          }
+          
+          return updatedBand
+        }
+        return band
+      })
+      
+      // Re-sort bands by overall score (if that's the current sort)
+      if (sortBy === 'score') {
+        return updatedBands.sort((a, b) => b.overallScore - a.overallScore)
+      }
+      
+      return updatedBands
+    })
+  }
+
+  const updateLocalDrawEstimate = (bandId: string, draw: number) => {
+    setLocalDrawEstimates(prev => ({
+      ...prev,
+      [bandId]: draw
+    }))
+    
+    // Get effective cost for calculation
+    const effectiveCost = getEffectiveCost(bands.find(b => b.id === bandId)!)
+    
+    // Immediately recalculate and update the band's scores
+    setBands(prevBands => {
+      const updatedBands = prevBands.map(band => {
+        if (band.id === bandId) {
+          // Calculate new cost effectiveness score using effective cost
+          const newCostEffectivenessScore = calculateCostEffectivenessWithDraw(effectiveCost, draw)
           
           // Create updated band with new cost effectiveness score
           const updatedBand = {
@@ -235,20 +290,27 @@ export default function BandDashboard() {
     return localCostEstimates[band.id] !== undefined && localCostEstimates[band.id] > 0
   }
 
-  const calculateCostEffectiveness = (cost: number, estimatedDraw: string): number => {
-    if (!cost || cost <= 0) return 0
+  const getEffectiveDraw = (band: Band): number => {
+    // Manual input overrides AI/original estimate
+    return localDrawEstimates[band.id] || parseInt(band.estimatedDraw.match(/(\d+)/)?.[1] || '0') || 0
+  }
+
+  const hasManualDrawInput = (band: Band): boolean => {
+    return localDrawEstimates[band.id] !== undefined && localDrawEstimates[band.id] > 0
+  }
+
+  const calculateCostEffectivenessWithDraw = (cost: number, draw: number): number => {
+    if (!cost || cost <= 0 || !draw || draw <= 0) return 0
     
-    // Parse estimated draw to get a number (e.g., "150-200" -> 175)
-    const drawMatch = estimatedDraw.match(/(\d+)/)
-    if (!drawMatch) return 0
-    
-    const draw = parseInt(drawMatch[1])
-    if (draw <= 0) return 0
-    
-    // Cost effectiveness formula: (Expected Draw / Cost) * 100
+    // Cost effectiveness formula: (Expected Draw / Cost) * 1000
     // Higher draw per dollar = better cost effectiveness
     const effectiveness = Math.min((draw / cost) * 1000, 100) // Scale and cap at 100
     return Math.round(effectiveness)
+  }
+
+  const calculateRevenuePerCustomer = (cost: number, draw: number): number => {
+    if (!draw || draw <= 0) return 0
+    return cost / draw
   }
 
   const getCostEffectivenessLabel = (score: number): { label: string; color: string } => {
@@ -754,7 +816,8 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                 {/* Cost Effectiveness Analysis Section */}
                 <div className="mb-4 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <h4 className="text-sm font-medium text-blue-900 mb-3">💰 Cost Effectiveness Analysis</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 items-end">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4 items-end">
+                    {/* Cost Input */}
                     <div>
                       <label className="block text-xs font-medium text-blue-700 mb-1">Quote from Artist ($)</label>
                       <input
@@ -771,27 +834,69 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                           <div className="text-sm font-semibold text-purple-900">
                             ${band.aiCostEstimate.toLocaleString()}
                             {hasManualInput(band) && (
-                              <span className="text-xs text-purple-600 block">(overridden by manual input)</span>
+                              <span className="text-xs text-purple-600 block">(overridden)</span>
                             )}
                           </div>
                         </div>
                       )}
                     </div>
-                    <div className="text-center">
-                      <div className="text-xs text-blue-700 mb-1">Est. Draw: {band.estimatedDraw}</div>
-                      <div className="text-xs text-blue-600">
-                        {getEffectiveCost(band) > 0 && (
-                          <span>Cost per attendee: ${Math.round(getEffectiveCost(band) / (parseInt(band.estimatedDraw.match(/(\d+)/)?.[1] || '1') || 1))}</span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {hasManualInput(band) ? 'Using manual quote' : band.aiCostEstimate ? 'Using AI estimate' : 'No cost data'}
+
+                    {/* Draw Input */}
+                    <div>
+                      <label className="block text-xs font-medium text-blue-700 mb-1">Expected Attendance</label>
+                      <input
+                        type="number"
+                        placeholder="Enter estimate..."
+                        value={localDrawEstimates[band.id] || ''}
+                        onChange={(e) => updateLocalDrawEstimate(band.id, Number(e.target.value))}
+                        className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      {/* Original Draw Estimate Display */}
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-center">
+                        <div className="text-xs text-green-700 font-medium">📊 Original Estimate</div>
+                        <div className="text-sm font-semibold text-green-900">
+                          {band.estimatedDraw}
+                          {hasManualDrawInput(band) && (
+                            <span className="text-xs text-green-600 block">(overridden)</span>
+                          )}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Calculations */}
+                    <div className="text-center">
+                      <div className="text-xs text-blue-700 mb-1">Financial Breakdown</div>
+                      {(() => {
+                        const effectiveCost = getEffectiveCost(band)
+                        const effectiveDraw = getEffectiveDraw(band)
+                        const revenuePerCustomer = calculateRevenuePerCustomer(effectiveCost, effectiveDraw)
+                        
+                        return (
+                          <div className="space-y-1">
+                            {effectiveCost > 0 && effectiveDraw > 0 && (
+                              <>
+                                <div className="text-xs text-blue-600">
+                                  Cost per attendee: ${Math.round(revenuePerCustomer)}
+                                </div>
+                                <div className="text-xs text-blue-600">
+                                  Revenue needed per person: ${Math.round(revenuePerCustomer)}
+                                </div>
+                              </>
+                            )}
+                            <div className="text-xs text-gray-500">
+                              {hasManualInput(band) ? 'Manual quote' : band.aiCostEstimate ? 'AI quote' : 'No cost'} • {hasManualDrawInput(band) ? 'Manual draw' : 'Original draw'}
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </div>
+
+                    {/* Value Rating */}
                     <div className="text-center">
                       {(() => {
                         const effectiveCost = getEffectiveCost(band)
-                        const costScore = calculateCostEffectiveness(effectiveCost, band.estimatedDraw)
+                        const effectiveDraw = getEffectiveDraw(band)
+                        const costScore = calculateCostEffectivenessWithDraw(effectiveCost, effectiveDraw)
                         const { label, color } = getCostEffectivenessLabel(costScore)
                         return (
                           <div>
@@ -799,7 +904,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                             <span className={`px-2 py-1 text-xs font-medium rounded-full border ${color}`}>
                               {label}
                             </span>
-                            {effectiveCost > 0 && (
+                            {effectiveCost > 0 && effectiveDraw > 0 && (
                               <div className="text-xs text-blue-600 mt-1">Score: {costScore}/100</div>
                             )}
                           </div>
