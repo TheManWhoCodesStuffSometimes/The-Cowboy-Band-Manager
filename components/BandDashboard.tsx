@@ -27,6 +27,7 @@ interface Band {
   averageViewsPerVideo: number
   youtubeHasVevo: boolean
   estimatedDraw: string
+  aiCostEstimate?: number         // NEW - AI-generated cost estimate
   keyStrengths: string
   mainConcerns: string
   bookingStatus: 'Not Contacted' | 'Contacted' | 'Negotiating' | 'Booked' | 'Passed'
@@ -186,7 +187,12 @@ export default function BandDashboard() {
   }
 
   const getEffectiveCost = (band: Band): number => {
-    return localCostEstimates[band.id] || 0
+    // Manual input overrides AI estimate
+    return localCostEstimates[band.id] || band.aiCostEstimate || 0
+  }
+
+  const hasManualInput = (band: Band): boolean => {
+    return localCostEstimates[band.id] !== undefined && localCostEstimates[band.id] > 0
   }
 
   const calculateCostEffectiveness = (cost: number, estimatedDraw: string): number => {
@@ -264,6 +270,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
         youtubeVideoCount: Number(safeExtractValue(record['Youtube Video Count'] || record.youtubeVideoCount, 0)) || 0,
         averageViewsPerVideo: Number(safeExtractValue(record['Average Views Per Video'] || record.averageViewsPerVideo, 0)) || 0,
         youtubeHasVevo: safeExtractValue(record['Youtube has VEVO'], 'false') === 'true' || safeExtractValue(record['Youtube has VEVO'], false) === true,
+        aiCostEstimate: Number(safeExtractValue(record['AI Cost Estimate'] || record.aiCostEstimate, 0)) || undefined,  // NEW
         estimatedDraw: safeExtractValue(record['Estimated Audience Draw'] || record.estimatedDraw, 'Unknown'),
         keyStrengths: safeExtractValue(record['Key Strengths'] || record.keyStrengths, 'No strengths identified yet'),
         mainConcerns: safeExtractValue(record['Main Concerns'] || record.mainConcerns, 'No concerns identified yet'),
@@ -717,6 +724,18 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                         onChange={(e) => updateLocalCostEstimate(band.id, Number(e.target.value))}
                         className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
+                      {/* AI Cost Estimate Display */}
+                      {band.aiCostEstimate && (
+                        <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-center">
+                          <div className="text-xs text-purple-700 font-medium">🤖 AI Suggested Quote</div>
+                          <div className="text-sm font-semibold text-purple-900">
+                            ${band.aiCostEstimate.toLocaleString()}
+                            {hasManualInput(band) && (
+                              <span className="text-xs text-purple-600 block">(overridden by manual input)</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="text-center">
                       <div className="text-xs text-blue-700 mb-1">Est. Draw: {band.estimatedDraw}</div>
@@ -724,6 +743,9 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                         {getEffectiveCost(band) > 0 && (
                           <span>Cost per attendee: ${Math.round(getEffectiveCost(band) / (parseInt(band.estimatedDraw.match(/(\d+)/)?.[1] || '1') || 1))}</span>
                         )}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {hasManualInput(band) ? 'Using manual quote' : band.aiCostEstimate ? 'Using AI estimate' : 'No cost data'}
                       </div>
                     </div>
                     <div className="text-center">
