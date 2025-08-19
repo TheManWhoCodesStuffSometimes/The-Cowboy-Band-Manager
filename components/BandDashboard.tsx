@@ -184,6 +184,46 @@ export default function BandDashboard() {
       ...prev,
       [bandId]: cost
     }))
+    
+    // Immediately recalculate and update the band's scores
+    setBands(prevBands => {
+      const updatedBands = prevBands.map(band => {
+        if (band.id === bandId) {
+          // Calculate new cost effectiveness score
+          const newCostEffectivenessScore = calculateCostEffectiveness(cost, band.estimatedDraw)
+          
+          // Create updated band with new cost effectiveness score
+          const updatedBand = {
+            ...band,
+            costEffectivenessScore: newCostEffectivenessScore
+          }
+          
+          // Recalculate overall score with current ranking weights
+          const weights = rankingWeights[rankingFocus]
+          if (weights) {
+            updatedBand.overallScore = Math.round(
+              updatedBand.growthMomentumScore * weights.growthMomentum +
+              updatedBand.fanEngagementScore * weights.fanEngagement +
+              updatedBand.digitalPopularityScore * weights.digitalPopularity +
+              updatedBand.livePotentialScore * weights.livePotential +
+              updatedBand.venueFitScore * weights.venueFit +
+              updatedBand.geographicFitScore * weights.geographicFit +
+              updatedBand.costEffectivenessScore * weights.costEffectiveness
+            )
+          }
+          
+          return updatedBand
+        }
+        return band
+      })
+      
+      // Re-sort bands by overall score (if that's the current sort)
+      if (sortBy === 'score') {
+        return updatedBands.sort((a, b) => b.overallScore - a.overallScore)
+      }
+      
+      return updatedBands
+    })
   }
 
   const getEffectiveCost = (band: Band): number => {
