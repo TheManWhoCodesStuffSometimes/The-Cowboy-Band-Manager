@@ -1350,7 +1350,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-200 space-y-3 sm:space-y-0">
                     <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                       {band.spotifyUrl && (
-                        
+  
                           href={band.spotifyUrl}
                           target="_blank"
                           rel="noopener noreferrer"
