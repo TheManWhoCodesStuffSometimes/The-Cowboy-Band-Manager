@@ -1,4 +1,426 @@
-'use client'
+{/* Results */}
+        <div className="grid gap-4 sm:gap-6">
+          {filteredBands.map((band) => (
+            <div key={band.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+              {/* Main Card Content */}
+              <div className="p-4 sm:p-6">
+                {/* Header Row */}
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between space-y-3 sm:space-y-0 mb-4">
+                  <div className="flex items-start space-x-3">
+                    {getStatusIcon(band.bookingStatus)}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{band.name}</h3>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mt-1 space-y-1 sm:space-y-0">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full border w-fit ${getRecommendationColor(band.recommendation)}`}>
+                          {band.recommendation}
+                        </span>
+                        <span className="text-xs sm:text-sm text-gray-500">{band.bookingStatus}</span>
+                        {/* NEW: Performance Status Badge */}
+                        {band.hasPlayed === 'Yes' && (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full border bg-green-100 text-green-800 border-green-200 w-fit">
+                            ✓ Played
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* NEW: Band Status Dropdown - Only show if band hasn't played */}
+                      {band.hasPlayed !== 'Yes' && (
+                        <div className="mt-2">
+                          <select
+                            onChange={(e) => handleBandStatusChange(band.id, band.name, e.target.value)}
+                            className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent"
+                            defaultValue=""
+                          >
+                            <option value="" disabled>Band Status</option>
+                            <option value="Band Not Played">Band Not Played</option>
+                            <option value="Band Played">Band Played</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-center sm:text-right flex-shrink-0">
+                    <div className="text-2xl sm:text-3xl font-bold text-orange-600">{band.overallScore}</div>
+                    <div className="text-xs sm:text-sm text-gray-500">Overall Score</div>
+                  </div>
+                </div>
+
+                {/* Key Metrics Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4">
+                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
+                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.spotifyFollowers.toLocaleString()}</div>
+                    <div className="text-xs text-gray-500">Spotify Followers</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
+                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.spotifyPopularity}/100</div>
+                    <div className="text-xs text-gray-500">Spotify Popularity</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
+                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.youtubeSubscribers.toLocaleString()}</div>
+                    <div className="text-xs text-gray-500">YouTube Subscribers</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
+                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.averageViewsPerVideo.toLocaleString()}</div>
+                    <div className="text-xs text-gray-500">Avg Views/Video</div>
+                  </div>
+                </div>
+
+                {/* Expand/Collapse Button */}
+                <button
+                  onClick={() => toggleCardExpansion(band.id)}
+                  className="w-full flex items-center justify-center space-x-2 py-2 sm:py-3 text-sm text-gray-600 hover:text-gray-800 border-t border-gray-200 touch-manipulation"
+                >
+                  <span>
+                    {expandedCards.has(band.id) ? 'Hide Details' : 'Show Details'}
+                  </span>
+                  {expandedCards.has(band.id) ? (
+                    <ChevronUpIcon className="h-4 w-4" />
+                  ) : (
+                    <ChevronDownIcon className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+
+              {/* Expanded Details */}
+              {expandedCards.has(band.id) && (
+                <div className="border-t border-gray-200 bg-gray-50 p-4 sm:p-6">
+                  
+                  {/* Cost Effectiveness Analysis Section */}
+                  <div className="mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-900 mb-3">💰 Cost Effectiveness Analysis</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4 items-end">
+                      {/* Cost Input */}
+                      <div>
+                        <label className="block text-xs font-medium text-blue-700 mb-1">Quote from Artist ($)</label>
+                        <input
+                          type="number"
+                          placeholder="Enter quote..."
+                          value={localCostEstimates[band.id] || ''}
+                          onChange={(e) => updateLocalCostEstimate(band.id, Number(e.target.value))}
+                          className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        {/* AI Cost Estimate Display */}
+                        {band.aiCostEstimate && (
+                          <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-center">
+                            <div className="text-xs text-purple-700 font-medium">🤖 AI Suggested Quote</div>
+                            <div className="text-sm font-semibold text-purple-900">
+                              ${band.aiCostEstimate.toLocaleString()}
+                              {hasManualInput(band) && (
+                                <span className="text-xs text-purple-600 block">(overridden)</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+              
+                      {/* Draw Input */}
+                      <div>
+                        <label className="block text-xs font-medium text-blue-700 mb-1">Expected Attendance</label>
+                        <input
+                          type="number"
+                          placeholder="Enter estimate..."
+                          value={localDrawEstimates[band.id] || ''}
+                          onChange={(e) => updateLocalDrawEstimate(band.id, Number(e.target.value))}
+                          className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        {/* Original Draw Estimate Display */}
+                        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-center">
+                          <div className="text-xs text-green-700 font-medium">📊 Original Estimate</div>
+                          <div className="text-sm font-semibold text-green-900">
+                            {band.estimatedDraw}
+                            {hasManualDrawInput(band) && (
+                              <span className="text-xs text-green-600 block">(overridden)</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+              
+                      {/* Calculations */}
+                      <div className="text-center">
+                        <div className="text-xs text-blue-700 mb-1">Financial Breakdown</div>
+                        {(() => {
+                          const effectiveCost = getEffectiveCost(band)
+                          const effectiveDraw = getEffectiveDraw(band)
+                          const revenuePerCustomer = calculateRevenuePerCustomer(effectiveCost, effectiveDraw)
+                          
+                          return (
+                            <div className="space-y-1">
+                              {effectiveCost > 0 && effectiveDraw > 0 && (
+                                <>
+                                  <div className="text-xs text-blue-600">
+                                    Cost per attendee: ${Math.round(revenuePerCustomer)}
+                                  </div>
+                                  <div className="text-xs text-blue-600">
+                                    Revenue needed per person: ${Math.round(revenuePerCustomer)}
+                                  </div>
+                                </>
+                              )}
+                              <div className="text-xs text-gray-500">
+                                {hasManualInput(band) ? 'Manual quote' : band.aiCostEstimate ? 'AI quote' : 'No cost'} • {hasManualDrawInput(band) ? 'Manual draw' : 'Original draw'}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </div>
+              
+                      {/* Value Rating */}
+                      <div className="text-center">
+                        {(() => {
+                          const effectiveCost = getEffectiveCost(band)
+                          const effectiveDraw = getEffectiveDraw(band)
+                          const costScore = calculateCostEffectivenessWithDraw(effectiveCost, effectiveDraw)
+                          const { label, color } = getCostEffectivenessLabel(costScore)
+                          return (
+                            <div>
+                              <div className="text-xs text-blue-700 mb-1">Value Rating</div>
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full border ${color}`}>
+                                {label}
+                              </span>
+                              {effectiveCost > 0 && effectiveDraw > 0 && (
+                                <div className="text-xs text-blue-600 mt-1">Score: {costScore}/100</div>
+                              )}
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+              
+                  {/* Performance History Section */}
+                  {band.hasPlayed === 'Yes' && (
+                    <div className="mb-6 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <h4 className="text-sm font-medium text-green-900 mb-3">🎤 Performance History</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-green-900">
+                            {band.overallVibe ? '★'.repeat(band.overallVibe) + '☆'.repeat(5 - band.overallVibe) : 'N/A'}
+                          </div>
+                          <div className="text-xs text-green-700">Overall Vibe</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-green-900">
+                            {band.overallAttendance || 'N/A'}
+                          </div>
+                          <div className="text-xs text-green-700">Actual Attendance</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-green-900">
+                            {band.bandBookingCost ? `${band.bandBookingCost.toLocaleString()}` : 'N/A'}
+                          </div>
+                          <div className="text-xs text-green-700">Actual Cost</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-green-900">
+                            {band.wouldBookAgain || 'N/A'}
+                          </div>
+                          <div className="text-xs text-green-700">Book Again?</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-green-900">
+                            {band.openerHeadliner || 'N/A'}
+                          </div>
+                          <div className="text-xs text-green-700">Slot</div>
+                        </div>
+                      </div>
+                      {band.mostRecentPerformanceDate && (
+                        <div className="mt-3 text-center">
+                          <div className="text-xs text-green-600">
+                            Last performed: {new Date(band.mostRecentPerformanceDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+              
+                  {/* Score Breakdown */}
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Score Breakdown</h4>
+                    <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 sm:gap-3">
+                      <div className="text-center">
+                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.growthMomentumScore}</div>
+                        <div className="text-xs text-gray-500">Growth</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.fanEngagementScore}</div>
+                        <div className="text-xs text-gray-500">Engagement</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.digitalPopularityScore}</div>
+                        <div className="text-xs text-gray-500">Digital</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.livePotentialScore}</div>
+                        <div className="text-xs text-gray-500">Live</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.venueFitScore}</div>
+                        <div className="text-xs text-gray-500">Venue Fit</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg sm:text-xl font-semibold text-blue-600">{band.geographicFitScore}</div>
+                        <div className="text-xs text-blue-500 font-medium">Geographic</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg sm:text-xl font-semibold text-green-600">{band.costEffectivenessScore}</div>
+                        <div className="text-xs text-green-500 font-medium">Cost Value</div>
+                      </div>
+                    </div>
+                  </div>
+              
+                  {/* Additional YouTube Stats */}
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">YouTube Analytics</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                      <div className="bg-white rounded-lg p-3 text-center">
+                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.youtubeViews.toLocaleString()}</div>
+                        <div className="text-xs text-gray-500">Total Views</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center">
+                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.youtubeVideoCount}</div>
+                        <div className="text-xs text-gray-500">Video Count</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center">
+                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.estimatedDraw}</div>
+                        <div className="text-xs text-gray-500">Est. Draw</div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center">
+                        <div className="text-sm sm:text-lg font-semibold text-gray-900">
+                          {band.youtubeHasVevo ? '✓' : '✗'}
+                        </div>
+                        <div className="text-xs text-gray-500">VEVO Channel</div>
+                      </div>
+                    </div>
+                  </div>
+              
+                  {/* Key Strengths & Concerns */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Key Strengths</h4>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <p className="text-sm text-green-800">
+                          {band.keyStrengths || 'No strengths identified yet'}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Main Concerns</h4>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-sm text-red-800">
+                          {band.mainConcerns || 'No concerns identified yet'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+              
+                  {/* AI Analysis Notes */}
+                  {band.aiAnalysisNotes && (
+                    <div className="mb-6">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">AI Analysis Notes</h4>
+                      <div className="bg-white border border-gray-200 rounded-lg p-3">
+                        <p className="text-sm text-gray-600">{band.aiAnalysisNotes}</p>
+                      </div>
+                    </div>
+                  )}
+              
+                  {/* Actions & Status */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-200 space-y-3 sm:space-y-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                      {band.spotifyUrl && (
+                        <a
+                          href={band.spotifyUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center px-3 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors touch-manipulation"
+                        >
+                          <SpeakerWaveIcon className="h-4 w-4 mr-1" />
+                          Listen on Spotify
+                        </a>
+                      )}
+                      <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 space-y-1 sm:space-y-0 sm:space-x-2">
+                        <span>Confidence: {band.confidenceLevel}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span>Analyzed: {new Date(band.dateAnalyzed).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    
+                    <select
+                      value={band.bookingStatus}
+                      onChange={(e) => updateBookingStatus(band.id, e.target.value as Band['bookingStatus'])}
+                      className="w-full sm:w-auto text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    >
+                      <option value="Not Contacted">Not Contacted</option>
+                      <option value="Contacted">Contacted</option>
+                      <option value="Negotiating">Negotiating</option>
+                      <option value="Booked">Booked</option>
+                      <option value="Passed">Passed</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* No Results Message */}
+        {filteredBands.length === 0 && (
+          <div className="text-center py-8 sm:py-12">
+            <SpeakerWaveIcon className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No bands found</h3>
+            <p className="mt-1 text-sm text-gray-500 px-4">
+              {bands.length === 0 
+                ? "No band data available. Try clicking 'Refresh Data' to scan for new bands."
+                : "Try adjusting your search or filters."
+              }
+            </p>
+          </div>
+        )}
+
+        {/* Stats Summary */}
+        {filteredBands.length > 0 && (
+          <div className="mt-6 sm:mt-8 bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Dashboard Summary</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold text-orange-600">{filteredBands.length}</div>
+                <div className="text-xs sm:text-sm text-gray-500">Total Bands</div>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold text-green-600">
+                  {filteredBands.filter(b => b.recommendation === 'BOOK SOON').length}
+                </div>
+                <div className="text-xs sm:text-sm text-gray-500">Book Soon</div>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold text-blue-600">
+                  {filteredBands.filter(b => b.recommendation === 'STRONG CONSIDER').length}
+                </div>
+                <div className="text-xs sm:text-sm text-gray-500">Strong Consider</div>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold text-gray-600">
+                  {filteredBands.filter(b => b.hasPlayed === 'Yes').length}
+                </div>
+                <div className="text-xs sm:text-sm text-gray-500">Bands Played</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Performance Form Modal */}
+      <PerformanceFormModal
+        isOpen={performanceModalOpen}
+        onClose={() => {
+          setPerformanceModalOpen(false)
+          setSelectedBandForPerformance(null)
+        }}
+        bandName={selectedBandForPerformance?.name || ''}
+        bandId={selectedBandForPerformance?.id || ''}
+        onSubmit={handlePerformanceSubmit}
+      />
+    </div>
+  )
+}'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -554,27 +976,27 @@ export default function BandDashboard() {
   }
 
   // Improved helper function to safely extract values from complex Airtable objects
-const safeExtractValue = (field: any, fallback: any = null) => {
-  if (field === null || field === undefined) return fallback
-  
-  // Handle Airtable error objects
-  if (typeof field === 'object' && field.state === 'error') {
-    console.warn('Airtable field error:', field)
-    return fallback
+  const safeExtractValue = (field: any, fallback: any = null) => {
+    if (field === null || field === undefined) return fallback
+    
+    // Handle Airtable error objects
+    if (typeof field === 'object' && field.state === 'error') {
+      console.warn('Airtable field error:', field)
+      return fallback
+    }
+    
+    // Handle objects with .value property
+    if (typeof field === 'object' && field.value !== undefined) {
+      return field.value || fallback
+    }
+    
+    // Handle arrays (in case of multi-select fields)
+    if (Array.isArray(field)) {
+      return field.length > 0 ? field[0] : fallback
+    }
+    
+    return field
   }
-  
-  // Handle objects with .value property
-  if (typeof field === 'object' && field.value !== undefined) {
-    return field.value || fallback
-  }
-  
-  // Handle arrays (in case of multi-select fields)
-  if (Array.isArray(field)) {
-    return field.length > 0 ? field[0] : fallback
-  }
-  
-  return field
-}
 
   // Transform Airtable data to our Band interface with enhanced error handling
   const transformAirtableData = (airtableRecords: any[]): Band[] => {
@@ -1021,425 +1443,3 @@ const safeExtractValue = (field: any, fallback: any = null) => {
             </div>
           </div>
         </div>
-
-        {/* Results */}
-        <div className="grid gap-4 sm:gap-6">
-          {filteredBands.map((band) => (
-            <div key={band.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-              {/* Main Card Content */}
-              <div className="p-4 sm:p-6">
-                {/* Header Row */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between space-y-3 sm:space-y-0 mb-4">
-                  <div className="flex items-start space-x-3">
-                    {getStatusIcon(band.bookingStatus)}
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{band.name}</h3>
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mt-1 space-y-1 sm:space-y-0">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full border w-fit ${getRecommendationColor(band.recommendation)}`}>
-                          {band.recommendation}
-                        </span>
-                        <span className="text-xs sm:text-sm text-gray-500">{band.bookingStatus}</span>
-                        {/* NEW: Performance Status Badge */}
-                        {band.hasPlayed === 'Yes' && (
-                          <span className="px-2 py-1 text-xs font-medium rounded-full border bg-green-100 text-green-800 border-green-200 w-fit">
-                            ✓ Played
-                          </span>
-                        )}
-                      </div>
-                      
-                      {/* NEW: Band Status Dropdown - Only show if band hasn't played */}
-                      {band.hasPlayed !== 'Yes' && (
-                        <div className="mt-2">
-                          <select
-                            onChange={(e) => handleBandStatusChange(band.id, band.name, e.target.value)}
-                            className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent"
-                            defaultValue=""
-                          >
-                            <option value="" disabled>Band Status</option>
-                            <option value="Band Not Played">Band Not Played</option>
-                            <option value="Band Played">Band Played</option>
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-center sm:text-right flex-shrink-0">
-                    <div className="text-2xl sm:text-3xl font-bold text-orange-600">{band.overallScore}</div>
-                    <div className="text-xs sm:text-sm text-gray-500">Overall Score</div>
-                  </div>
-                </div>
-
-                {/* Key Metrics Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4">
-                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
-                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.spotifyFollowers.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">Spotify Followers</div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
-                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.spotifyPopularity}/100</div>
-                    <div className="text-xs text-gray-500">Spotify Popularity</div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
-                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.youtubeSubscribers.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">YouTube Subscribers</div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
-                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.averageViewsPerVideo.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">Avg Views/Video</div>
-                  </div>
-                </div>
-
-                {/* Expand/Collapse Button */}
-                <button
-                  onClick={() => toggleCardExpansion(band.id)}
-                  className="w-full flex items-center justify-center space-x-2 py-2 sm:py-3 text-sm text-gray-600 hover:text-gray-800 border-t border-gray-200 touch-manipulation"
-                >
-                  <span>
-                    {expandedCards.has(band.id) ? 'Hide Details' : 'Show Details'}
-                  </span>
-                  {expandedCards.has(band.id) ? (
-                    <ChevronUpIcon className="h-4 w-4" />
-                  ) : (
-                    <ChevronDownIcon className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-
-              {/* Expanded Details */}
-              {expandedCards.has(band.id) && (
-                <div className="border-t border-gray-200 bg-gray-50 p-4 sm:p-6">
-                  
-                  {/* Cost Effectiveness Analysis Section */}
-                  <div className="mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="text-sm font-medium text-blue-900 mb-3">💰 Cost Effectiveness Analysis</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4 items-end">
-                      {/* Cost Input */}
-                      <div>
-                        <label className="block text-xs font-medium text-blue-700 mb-1">Quote from Artist ($)</label>
-                        <input
-                          type="number"
-                          placeholder="Enter quote..."
-                          value={localCostEstimates[band.id] || ''}
-                          onChange={(e) => updateLocalCostEstimate(band.id, Number(e.target.value))}
-                          className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        {/* AI Cost Estimate Display */}
-                        {band.aiCostEstimate && (
-                          <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-center">
-                            <div className="text-xs text-purple-700 font-medium">🤖 AI Suggested Quote</div>
-                            <div className="text-sm font-semibold text-purple-900">
-                              ${band.aiCostEstimate.toLocaleString()}
-                              {hasManualInput(band) && (
-                                <span className="text-xs text-purple-600 block">(overridden)</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-              
-                      {/* Draw Input */}
-                      <div>
-                        <label className="block text-xs font-medium text-blue-700 mb-1">Expected Attendance</label>
-                        <input
-                          type="number"
-                          placeholder="Enter estimate..."
-                          value={localDrawEstimates[band.id] || ''}
-                          onChange={(e) => updateLocalDrawEstimate(band.id, Number(e.target.value))}
-                          className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        {/* Original Draw Estimate Display */}
-                        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-center">
-                          <div className="text-xs text-green-700 font-medium">📊 Original Estimate</div>
-                          <div className="text-sm font-semibold text-green-900">
-                            {band.estimatedDraw}
-                            {hasManualDrawInput(band) && (
-                              <span className="text-xs text-green-600 block">(overridden)</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-              
-                      {/* Calculations */}
-                      <div className="text-center">
-                        <div className="text-xs text-blue-700 mb-1">Financial Breakdown</div>
-                        {(() => {
-                          const effectiveCost = getEffectiveCost(band)
-                          const effectiveDraw = getEffectiveDraw(band)
-                          const revenuePerCustomer = calculateRevenuePerCustomer(effectiveCost, effectiveDraw)
-                          
-                          return (
-                            <div className="space-y-1">
-                              {effectiveCost > 0 && effectiveDraw > 0 && (
-                                <>
-                                  <div className="text-xs text-blue-600">
-                                    Cost per attendee: ${Math.round(revenuePerCustomer)}
-                                  </div>
-                                  <div className="text-xs text-blue-600">
-                                    Revenue needed per person: ${Math.round(revenuePerCustomer)}
-                                  </div>
-                                </>
-                              )}
-                              <div className="text-xs text-gray-500">
-                                {hasManualInput(band) ? 'Manual quote' : band.aiCostEstimate ? 'AI quote' : 'No cost'} • {hasManualDrawInput(band) ? 'Manual draw' : 'Original draw'}
-                              </div>
-                            </div>
-                          )
-                        })()}
-                      </div>
-              
-                      {/* Value Rating */}
-                      <div className="text-center">
-                        {(() => {
-                          const effectiveCost = getEffectiveCost(band)
-                          const effectiveDraw = getEffectiveDraw(band)
-                          const costScore = calculateCostEffectivenessWithDraw(effectiveCost, effectiveDraw)
-                          const { label, color } = getCostEffectivenessLabel(costScore)
-                          return (
-                            <div>
-                              <div className="text-xs text-blue-700 mb-1">Value Rating</div>
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full border ${color}`}>
-                                {label}
-                              </span>
-                              {effectiveCost > 0 && effectiveDraw > 0 && (
-                                <div className="text-xs text-blue-600 mt-1">Score: {costScore}/100</div>
-                              )}
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-              
-                  {/* Performance History Section */}
-                  {band.hasPlayed === 'Yes' && (
-                    <div className="mb-6 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <h4 className="text-sm font-medium text-green-900 mb-3">🎤 Performance History</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-                        <div className="text-center">
-                          <div className="text-lg font-semibold text-green-900">
-                            {band.overallVibe ? '★'.repeat(band.overallVibe) + '☆'.repeat(5 - band.overallVibe) : 'N/A'}
-                          </div>
-                          <div className="text-xs text-green-700">Overall Vibe</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-semibold text-green-900">
-                            {band.overallAttendance || 'N/A'}
-                          </div>
-                          <div className="text-xs text-green-700">Actual Attendance</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-semibold text-green-900">
-                            {band.bandBookingCost ? `$${band.bandBookingCost.toLocaleString()}` : 'N/A'}
-                          </div>
-                          <div className="text-xs text-green-700">Actual Cost</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-semibold text-green-900">
-                            {band.wouldBookAgain || 'N/A'}
-                          </div>
-                          <div className="text-xs text-green-700">Book Again?</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-semibold text-green-900">
-                            {band.openerHeadliner || 'N/A'}
-                          </div>
-                          <div className="text-xs text-green-700">Slot</div>
-                        </div>
-                      </div>
-                      {band.mostRecentPerformanceDate && (
-                        <div className="mt-3 text-center">
-                          <div className="text-xs text-green-600">
-                            Last performed: {new Date(band.mostRecentPerformanceDate).toLocaleDateString()}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-              
-                  {/* Score Breakdown */}
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Score Breakdown</h4>
-                    <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 sm:gap-3">
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.growthMomentumScore}</div>
-                        <div className="text-xs text-gray-500">Growth</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.fanEngagementScore}</div>
-                        <div className="text-xs text-gray-500">Engagement</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.digitalPopularityScore}</div>
-                        <div className="text-xs text-gray-500">Digital</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.livePotentialScore}</div>
-                        <div className="text-xs text-gray-500">Live</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.venueFitScore}</div>
-                        <div className="text-xs text-gray-500">Venue Fit</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-blue-600">{band.geographicFitScore}</div>
-                        <div className="text-xs text-blue-500 font-medium">Geographic</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-green-600">{band.costEffectivenessScore}</div>
-                        <div className="text-xs text-green-500 font-medium">Cost Value</div>
-                      </div>
-                    </div>
-                  </div>
-              
-                  {/* Additional YouTube Stats */}
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">YouTube Analytics</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                      <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.youtubeViews.toLocaleString()}</div>
-                        <div className="text-xs text-gray-500">Total Views</div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.youtubeVideoCount}</div>
-                        <div className="text-xs text-gray-500">Video Count</div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.estimatedDraw}</div>
-                        <div className="text-xs text-gray-500">Est. Draw</div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-sm sm:text-lg font-semibold text-gray-900">
-                          {band.youtubeHasVevo ? '✓' : '✗'}
-                        </div>
-                        <div className="text-xs text-gray-500">VEVO Channel</div>
-                      </div>
-                    </div>
-                  </div>
-              
-                  {/* Key Strengths & Concerns */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Key Strengths</h4>
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <p className="text-sm text-green-800">
-                          {band.keyStrengths || 'No strengths identified yet'}
-                        </p>
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Main Concerns</h4>
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                        <p className="text-sm text-red-800">
-                          {band.mainConcerns || 'No concerns identified yet'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-              
-                  {/* AI Analysis Notes */}
-                  {band.aiAnalysisNotes && (
-                    <div className="mb-6">
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">AI Analysis Notes</h4>
-                      <div className="bg-white border border-gray-200 rounded-lg p-3">
-                        <p className="text-sm text-gray-600">{band.aiAnalysisNotes}</p>
-                      </div>
-                    </div>
-                  )}
-              
-                  {/* Actions & Status */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-200 space-y-3 sm:space-y-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                      {band.spotifyUrl && (
-  
-                          href={band.spotifyUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center px-3 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors touch-manipulation"
-                        >
-                          <SpeakerWaveIcon className="h-4 w-4 mr-1" />
-                          Listen on Spotify
-                        </a>
-                      )}
-                      <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 space-y-1 sm:space-y-0 sm:space-x-2">
-                        <span>Confidence: {band.confidenceLevel}</span>
-                        <span className="hidden sm:inline">•</span>
-                        <span>Analyzed: {new Date(band.dateAnalyzed).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    
-                    <select
-                      value={band.bookingStatus}
-                      onChange={(e) => updateBookingStatus(band.id, e.target.value as Band['bookingStatus'])}
-                      className="w-full sm:w-auto text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    >
-                      <option value="Not Contacted">Not Contacted</option>
-                      <option value="Contacted">Contacted</option>
-                      <option value="Negotiating">Negotiating</option>
-                      <option value="Booked">Booked</option>
-                      <option value="Passed">Passed</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-        {/* No Results Message */}
-        {filteredBands.length === 0 && (
-          <div className="text-center py-8 sm:py-12">
-            <SpeakerWaveIcon className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No bands found</h3>
-            <p className="mt-1 text-sm text-gray-500 px-4">
-              {bands.length === 0 
-                ? "No band data available. Try clicking 'Refresh Data' to scan for new bands."
-                : "Try adjusting your search or filters."
-              }
-            </p>
-          </div>
-        )}
-
-        {/* Stats Summary */}
-        {filteredBands.length > 0 && (
-          <div className="mt-6 sm:mt-8 bg-white rounded-xl shadow-lg p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Dashboard Summary</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <div className="text-xl sm:text-2xl font-bold text-orange-600">{filteredBands.length}</div>
-                <div className="text-xs sm:text-sm text-gray-500">Total Bands</div>
-              </div>
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <div className="text-xl sm:text-2xl font-bold text-green-600">
-                  {filteredBands.filter(b => b.recommendation === 'BOOK SOON').length}
-                </div>
-                <div className="text-xs sm:text-sm text-gray-500">Book Soon</div>
-              </div>
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <div className="text-xl sm:text-2xl font-bold text-blue-600">
-                  {filteredBands.filter(b => b.recommendation === 'STRONG CONSIDER').length}
-                </div>
-                <div className="text-xs sm:text-sm text-gray-500">Strong Consider</div>
-              </div>
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <div className="text-xl sm:text-2xl font-bold text-gray-600">
-                  {filteredBands.filter(b => b.hasPlayed === 'Yes').length}
-                </div>
-                <div className="text-xs sm:text-sm text-gray-500">Bands Played</div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Performance Form Modal */}
-      <PerformanceFormModal
-        isOpen={performanceModalOpen}
-        onClose={() => {
-          setPerformanceModalOpen(false)
-          setSelectedBandForPerformance(null)
-        }}
-        bandName={selectedBandForPerformance?.name || ''}
-        bandId={selectedBandForPerformance?.id || ''}
-        onSubmit={handlePerformanceSubmit}
-      />
-    </div>
-  )
-}
-                        
