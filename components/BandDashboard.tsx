@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { MagnifyingGlassIcon, FunnelIcon, SpeakerWaveIcon, ArrowPathIcon, AdjustmentsHorizontalIcon, ChevronDownIcon, ChevronUpIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, FunnelIcon, SpeakerWaveIcon, ArrowPathIcon, AdjustmentsHorizontalIcon, ChevronDownIcon, ChevronUpIcon, ArrowLeftIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { CheckCircleIcon, XCircleIcon, ClockIcon, StarIcon } from '@heroicons/react/24/solid'
 
 interface Band {
@@ -42,6 +42,14 @@ interface RankingFocus {
   label: string
   description: string
   icon: string
+}
+
+interface PerformanceData {
+  overallVibe: number
+  attendance: number
+  bandBookingCost: number
+  wouldBookAgain: 'Yes' | 'No' | 'Maybe'
+  openingHeadliner: 'Opening' | 'Headliner'
 }
 
 const rankingFocusOptions: RankingFocus[] = [
@@ -154,6 +162,168 @@ const applyWeightsToBands = (bands: Band[], focus: string): Band[] => {
   }))
 }
 
+// Performance Form Modal Component
+const PerformanceFormModal: React.FC<{
+  isOpen: boolean
+  onClose: () => void
+  bandName: string
+  bandId: string
+  onSubmit: (data: PerformanceData) => void
+}> = ({ isOpen, onClose, bandName, bandId, onSubmit }) => {
+  const [formData, setFormData] = useState<PerformanceData>({
+    overallVibe: 3,
+    attendance: 0,
+    bandBookingCost: 0,
+    wouldBookAgain: 'Maybe',
+    openingHeadliner: 'Opening'
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSubmit(formData)
+    onClose()
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-gray-900">Mark Band as Played</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 p-1"
+            >
+              <XMarkIcon className="h-6 w-6" />
+            </button>
+          </div>
+
+          {/* Band Name */}
+          <div className="mb-6 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <p className="text-sm text-orange-700 font-medium">Recording performance for:</p>
+            <p className="text-lg font-bold text-orange-900">{bandName}</p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* Overall Vibe */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Overall Vibe (1-5 stars)
+              </label>
+              <div className="flex space-x-2">
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <button
+                    key={rating}
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, overallVibe: rating }))}
+                    className={`p-2 rounded-lg transition-colors ${
+                      formData.overallVibe >= rating
+                        ? 'text-yellow-500'
+                        : 'text-gray-300 hover:text-yellow-400'
+                    }`}
+                  >
+                    <StarIcon className="h-6 w-6" />
+                  </button>
+                ))}
+                <span className="ml-2 text-sm text-gray-600 self-center">
+                  {formData.overallVibe}/5
+                </span>
+              </div>
+            </div>
+
+            {/* Attendance */}
+            <div>
+              <label htmlFor="attendance" className="block text-sm font-medium text-gray-700 mb-1">
+                Attendance (number of people)
+              </label>
+              <input
+                type="number"
+                id="attendance"
+                value={formData.attendance || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, attendance: Number(e.target.value) }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Enter attendance count"
+                required
+              />
+            </div>
+
+            {/* Band Booking Cost */}
+            <div>
+              <label htmlFor="cost" className="block text-sm font-medium text-gray-700 mb-1">
+                Band Booking Cost ($)
+              </label>
+              <input
+                type="number"
+                id="cost"
+                value={formData.bandBookingCost || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, bandBookingCost: Number(e.target.value) }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Enter booking cost"
+                required
+              />
+            </div>
+
+            {/* Would Book Again */}
+            <div>
+              <label htmlFor="bookAgain" className="block text-sm font-medium text-gray-700 mb-1">
+                Would Book Again?
+              </label>
+              <select
+                id="bookAgain"
+                value={formData.wouldBookAgain}
+                onChange={(e) => setFormData(prev => ({ ...prev, wouldBookAgain: e.target.value as 'Yes' | 'No' | 'Maybe' }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+                <option value="Maybe">Maybe</option>
+              </select>
+            </div>
+
+            {/* Opening/Headliner */}
+            <div>
+              <label htmlFor="slot" className="block text-sm font-medium text-gray-700 mb-1">
+                Opening or Headliner?
+              </label>
+              <select
+                id="slot"
+                value={formData.openingHeadliner}
+                onChange={(e) => setFormData(prev => ({ ...prev, openingHeadliner: e.target.value as 'Opening' | 'Headliner' }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                <option value="Opening">Opening</option>
+                <option value="Headliner">Headliner</option>
+              </select>
+            </div>
+
+            {/* Submit Buttons */}
+            <div className="flex space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+              >
+                Submit Performance
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function BandDashboard() {
   const router = useRouter()
   const [refreshCountdown, setRefreshCountdown] = useState<number>(0)
@@ -175,10 +345,62 @@ export default function BandDashboard() {
   const [localCostEstimates, setLocalCostEstimates] = useState<Record<string, number>>({})
   // NEW: Local draw estimates for real-time audience projections
   const [localDrawEstimates, setLocalDrawEstimates] = useState<Record<string, number>>({})
+  
+  // NEW: Performance tracking states
+  const [performanceModalOpen, setPerformanceModalOpen] = useState(false)
+  const [selectedBandForPerformance, setSelectedBandForPerformance] = useState<{ id: string, name: string } | null>(null)
 
   // Internal API URLs (no CORS issues)
   const RETRIEVE_DATA_API = '/api/bands'
   const REFRESH_DATA_API = '/api/bands/refresh'
+  const PERFORMANCE_WEBHOOK_URL = 'https://thayneautomations.app.n8n.cloud/webhook/edit-band-status'
+
+  // NEW: Handle performance form submission
+  const handlePerformanceSubmit = async (performanceData: PerformanceData) => {
+    if (!selectedBandForPerformance) return
+
+    try {
+      const payload = {
+        bandId: selectedBandForPerformance.id,
+        bandName: selectedBandForPerformance.name,
+        ...performanceData,
+        datePerformed: new Date().toISOString(),
+        venue: 'The Cowboy Saloon'
+      }
+
+      const response = await fetch(PERFORMANCE_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      })
+
+      if (response.ok) {
+        // Update the band's booking status to "Played" or similar
+        setBands(prev => prev.map(band => 
+          band.id === selectedBandForPerformance.id 
+            ? { ...band, bookingStatus: 'Booked' as const } // or create a new "Played" status
+            : band
+        ))
+        console.log('Performance data submitted successfully')
+      } else {
+        throw new Error('Failed to submit performance data')
+      }
+    } catch (error) {
+      console.error('Error submitting performance data:', error)
+      setError('Failed to submit performance data')
+    }
+  }
+
+  // NEW: Handle band status change
+  const handleBandStatusChange = (bandId: string, bandName: string, status: string) => {
+    if (status === 'Band Played') {
+      setSelectedBandForPerformance({ id: bandId, name: bandName })
+      setPerformanceModalOpen(true)
+    }
+    // You can handle other status changes here if needed
+  }
 
   // NEW: Helper functions for real-time cost effectiveness analysis
   const updateLocalCostEstimate = (bandId: string, cost: number) => {
@@ -785,6 +1007,19 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                         </span>
                         <span className="text-xs sm:text-sm text-gray-500">{band.bookingStatus}</span>
                       </div>
+                      
+                      {/* NEW: Band Status Dropdown */}
+                      <div className="mt-2">
+                        <select
+                          onChange={(e) => handleBandStatusChange(band.id, band.name, e.target.value)}
+                          className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent"
+                          defaultValue=""
+                        >
+                          <option value="" disabled>Band Status</option>
+                          <option value="Band Not Played">Band Not Played</option>
+                          <option value="Band Played">Band Played</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                   <div className="text-center sm:text-right flex-shrink-0">
@@ -793,7 +1028,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                   </div>
                 </div>
 
-                {/* Key Metrics Grid with Cost Effectiveness Input */}
+                {/* Key Metrics Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4">
                   <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
                     <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.spotifyFollowers.toLocaleString()}</div>
@@ -810,107 +1045,6 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                   <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
                     <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.averageViewsPerVideo.toLocaleString()}</div>
                     <div className="text-xs text-gray-500">Avg Views/Video</div>
-                  </div>
-                </div>
-
-                {/* Cost Effectiveness Analysis Section */}
-                <div className="mb-4 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h4 className="text-sm font-medium text-blue-900 mb-3">💰 Cost Effectiveness Analysis</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4 items-end">
-                    {/* Cost Input */}
-                    <div>
-                      <label className="block text-xs font-medium text-blue-700 mb-1">Quote from Artist ($)</label>
-                      <input
-                        type="number"
-                        placeholder="Enter quote..."
-                        value={localCostEstimates[band.id] || ''}
-                        onChange={(e) => updateLocalCostEstimate(band.id, Number(e.target.value))}
-                        className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      {/* AI Cost Estimate Display */}
-                      {band.aiCostEstimate && (
-                        <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-center">
-                          <div className="text-xs text-purple-700 font-medium">🤖 AI Suggested Quote</div>
-                          <div className="text-sm font-semibold text-purple-900">
-                            ${band.aiCostEstimate.toLocaleString()}
-                            {hasManualInput(band) && (
-                              <span className="text-xs text-purple-600 block">(overridden)</span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Draw Input */}
-                    <div>
-                      <label className="block text-xs font-medium text-blue-700 mb-1">Expected Attendance</label>
-                      <input
-                        type="number"
-                        placeholder="Enter estimate..."
-                        value={localDrawEstimates[band.id] || ''}
-                        onChange={(e) => updateLocalDrawEstimate(band.id, Number(e.target.value))}
-                        className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      {/* Original Draw Estimate Display */}
-                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-center">
-                        <div className="text-xs text-green-700 font-medium">📊 Original Estimate</div>
-                        <div className="text-sm font-semibold text-green-900">
-                          {band.estimatedDraw}
-                          {hasManualDrawInput(band) && (
-                            <span className="text-xs text-green-600 block">(overridden)</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Calculations */}
-                    <div className="text-center">
-                      <div className="text-xs text-blue-700 mb-1">Financial Breakdown</div>
-                      {(() => {
-                        const effectiveCost = getEffectiveCost(band)
-                        const effectiveDraw = getEffectiveDraw(band)
-                        const revenuePerCustomer = calculateRevenuePerCustomer(effectiveCost, effectiveDraw)
-                        
-                        return (
-                          <div className="space-y-1">
-                            {effectiveCost > 0 && effectiveDraw > 0 && (
-                              <>
-                                <div className="text-xs text-blue-600">
-                                  Cost per attendee: ${Math.round(revenuePerCustomer)}
-                                </div>
-                                <div className="text-xs text-blue-600">
-                                  Revenue needed per person: ${Math.round(revenuePerCustomer)}
-                                </div>
-                              </>
-                            )}
-                            <div className="text-xs text-gray-500">
-                              {hasManualInput(band) ? 'Manual quote' : band.aiCostEstimate ? 'AI quote' : 'No cost'} • {hasManualDrawInput(band) ? 'Manual draw' : 'Original draw'}
-                            </div>
-                          </div>
-                        )
-                      })()}
-                    </div>
-
-                    {/* Value Rating */}
-                    <div className="text-center">
-                      {(() => {
-                        const effectiveCost = getEffectiveCost(band)
-                        const effectiveDraw = getEffectiveDraw(band)
-                        const costScore = calculateCostEffectivenessWithDraw(effectiveCost, effectiveDraw)
-                        const { label, color } = getCostEffectivenessLabel(costScore)
-                        return (
-                          <div>
-                            <div className="text-xs text-blue-700 mb-1">Value Rating</div>
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${color}`}>
-                              {label}
-                            </span>
-                            {effectiveCost > 0 && effectiveDraw > 0 && (
-                              <div className="text-xs text-blue-600 mt-1">Score: {costScore}/100</div>
-                            )}
-                          </div>
-                        )
-                      })()}
-                    </div>
                   </div>
                 </div>
 
@@ -933,14 +1067,58 @@ const safeExtractValue = (field: any, fallback: any = null) => {
               {/* Expanded Details */}
               {expandedCards.has(band.id) && (
                 <div className="border-t border-gray-200 bg-gray-50 p-4 sm:p-6">
-                  {/* Enhanced Ranking Scores - Now 7 components */}
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Ranking Scores (7-Component System)</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 sm:gap-4">
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.growthMomentumScore}</div>
-                        <div className="text-xs text-gray-500">Growth</div>
+                  
+                  {/* MOVED: Cost Effectiveness Analysis Section */}
+                  <div className="mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-900 mb-3">💰 Cost Effectiveness Analysis</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4 items-end">
+                      {/* Cost Input */}
+                      <div>
+                        <label className="block text-xs font-medium text-blue-700 mb-1">Quote from Artist ($)</label>
+                        <input
+                          type="number"
+                          placeholder="Enter quote..."
+                          value={localCostEstimates[band.id] || ''}
+                          onChange={(e) => updateLocalCostEstimate(band.id, Number(e.target.value))}
+                          className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        {/* AI Cost Estimate Display */}
+                        {band.aiCostEstimate && (
+                          <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-center">
+                            <div className="text-xs text-purple-700 font-medium">🤖 AI Suggested Quote</div>
+                            <div className="text-sm font-semibold text-purple-900">
+                              ${band.aiCostEstimate.toLocaleString()}
+                              {hasManualInput(band) && (
+                                <span className="text-xs text-purple-600 block">(overridden)</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Draw Input */}
+                      <div>
+                        <label className="block text-xs font-medium text-blue-700 mb-1">Expected Attendance</label>
+                        <input
+                          type="number"
+                          placeholder="Enter estimate..."
+                          value={localDrawEstimates[band.id] || ''}
+                          onChange={(e) => updateLocalDrawEstimate(band.id, Number(e.target.value))}
+                          className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        {/* Original Draw Estimate Display */}
+                        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-center">
+                          <div className="text-xs text-green-700 font-medium">📊 Original Estimate</div>
+                          <div className="text-sm font-semibold text-green-900">
+                            {band.estimatedDraw}
+                            {hasManualDrawInput(band) && (
+                              <span className="text-xs text-green-600 block">(overridden)</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Calculations */}
                       <div className="text-center">
                         <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.fanEngagementScore}</div>
                         <div className="text-xs text-gray-500">Engagement</div>
@@ -1107,6 +1285,19 @@ const safeExtractValue = (field: any, fallback: any = null) => {
           </div>
         )}
       </div>
+
+      {/* Performance Form Modal */}
+      <PerformanceFormModal
+        isOpen={performanceModalOpen}
+        onClose={() => {
+          setPerformanceModalOpen(false)
+          setSelectedBandForPerformance(null)
+        }}
+        bandName={selectedBandForPerformance?.name || ''}
+        bandId={selectedBandForPerformance?.id || ''}
+        onSubmit={handlePerformanceSubmit}
+      />
     </div>
   )
 }
+                         
