@@ -148,16 +148,44 @@ export default function BandHistoryDashboard() {
     return transformedBands
   }
 
-  // Calculate profitability score for sorting
+  // Calculate profitability score for sorting - updated with new methodology
   const calculateProfitability = (band: Band): number => {
-    if (!band.overallAttendance || !band.bandBookingCost || band.bandBookingCost <= 0) return 0
+    if (!band.overallAttendance || band.overallAttendance <= 0) return 0
+    if (!band.bandBookingCost || band.bandBookingCost <= 0) {
+      // Free shows get capacity utilization score only
+      const capacityUtilization = Math.min((band.overallAttendance / 450) * 100, 100)
+      return Math.round(capacityUtilization * 0.6) // Only 60% of total possible score for free shows
+    }
     
-    // Simple profitability calculation: attendance per dollar spent
-    // Higher attendance per dollar = better profitability
-    const attendancePerDollar = band.overallAttendance / band.bandBookingCost
+    const IDEAL_CAPACITY = 450
+    const TARGET_COST_PER_PERSON_MIN = 5
+    const TARGET_COST_PER_PERSON_MAX = 15
     
-    // Scale it to a 0-100 score (cap at reasonable max)
-    return Math.min(attendancePerDollar * 10, 100)
+    // Capacity Utilization Score (0-100, capped at 100)
+    const capacityUtilization = Math.min((band.overallAttendance / IDEAL_CAPACITY) * 100, 100)
+    
+    // Cost Efficiency Score (0-100)
+    const costPerPerson = band.bandBookingCost / band.overallAttendance
+    let costEfficiency = 0
+    
+    if (costPerPerson <= TARGET_COST_PER_PERSON_MIN) {
+      // Very cheap - excellent cost efficiency
+      costEfficiency = 100
+    } else if (costPerPerson <= TARGET_COST_PER_PERSON_MAX) {
+      // Within target range - scale from 100 to 60
+      const range = TARGET_COST_PER_PERSON_MAX - TARGET_COST_PER_PERSON_MIN
+      const position = costPerPerson - TARGET_COST_PER_PERSON_MIN
+      costEfficiency = 100 - (position / range) * 40 // 100 down to 60
+    } else {
+      // Above target range - scale down further
+      const excessCost = costPerPerson - TARGET_COST_PER_PERSON_MAX
+      costEfficiency = Math.max(60 - (excessCost * 2), 0) // Penalty for expensive shows
+    }
+    
+    // Combined score: 60% capacity utilization, 40% cost efficiency
+    const finalScore = (capacityUtilization * 0.6) + (costEfficiency * 0.4)
+    
+    return Math.round(finalScore)
   }
 
   // Fetch band data from our API
@@ -362,11 +390,11 @@ export default function BandHistoryDashboard() {
 
   const getProfitabilityLabel = (band: Band): { label: string; color: string } => {
     const score = calculateProfitability(band)
-    if (score >= 80) return { label: 'Highly Profitable', color: 'text-green-600' }
-    if (score >= 60) return { label: 'Profitable', color: 'text-blue-600' }
-    if (score >= 40) return { label: 'Break Even', color: 'text-yellow-600' }
-    if (score >= 20) return { label: 'Low Profit', color: 'text-orange-600' }
-    if (score > 0) return { label: 'Unprofitable', color: 'text-red-600' }
+    if (score >= 85) return { label: 'Excellent Value', color: 'text-green-600' }
+    if (score >= 70) return { label: 'Good Value', color: 'text-blue-600' }
+    if (score >= 55) return { label: 'Fair Value', color: 'text-yellow-600' }
+    if (score >= 35) return { label: 'Poor Value', color: 'text-orange-600' }
+    if (score > 0) return { label: 'Very Poor Value', color: 'text-red-600' }
     return { label: 'No Data', color: 'text-gray-600' }
   }
 
