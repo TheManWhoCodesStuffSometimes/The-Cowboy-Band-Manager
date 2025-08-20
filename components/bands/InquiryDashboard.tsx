@@ -505,10 +505,42 @@ export default function BandInquiryDashboard() {
   }
 
   const calculateCostEffectivenessWithDraw = (cost: number, draw: number): number => {
-    if (!cost || cost <= 0 || !draw || draw <= 0) return 0
+    if (!draw || draw <= 0) return 0
+    if (!cost || cost <= 0) {
+      // Free shows get capacity utilization score only
+      const capacityUtilization = Math.min((draw / 450) * 100, 100)
+      return Math.round(capacityUtilization * 0.6) // Only 60% of total possible score for free shows
+    }
     
-    const effectiveness = Math.min((draw / cost) * 1000, 100)
-    return Math.round(effectiveness)
+    const IDEAL_CAPACITY = 450
+    const TARGET_COST_PER_PERSON_MIN = 5
+    const TARGET_COST_PER_PERSON_MAX = 15
+    
+    // Capacity Utilization Score (0-100, capped at 100)
+    const capacityUtilization = Math.min((draw / IDEAL_CAPACITY) * 100, 100)
+    
+    // Cost Efficiency Score (0-100)
+    const costPerPerson = cost / draw
+    let costEfficiency = 0
+    
+    if (costPerPerson <= TARGET_COST_PER_PERSON_MIN) {
+      // Very cheap - excellent cost efficiency
+      costEfficiency = 100
+    } else if (costPerPerson <= TARGET_COST_PER_PERSON_MAX) {
+      // Within target range - scale from 100 to 60
+      const range = TARGET_COST_PER_PERSON_MAX - TARGET_COST_PER_PERSON_MIN
+      const position = costPerPerson - TARGET_COST_PER_PERSON_MIN
+      costEfficiency = 100 - (position / range) * 40 // 100 down to 60
+    } else {
+      // Above target range - scale down further
+      const excessCost = costPerPerson - TARGET_COST_PER_PERSON_MAX
+      costEfficiency = Math.max(60 - (excessCost * 2), 0) // Penalty for expensive shows
+    }
+    
+    // Combined score: 60% capacity utilization, 40% cost efficiency
+    const finalScore = (capacityUtilization * 0.6) + (costEfficiency * 0.4)
+    
+    return Math.round(finalScore)
   }
 
   const calculateRevenuePerCustomer = (cost: number, draw: number): number => {
@@ -517,12 +549,12 @@ export default function BandInquiryDashboard() {
   }
 
   const getCostEffectivenessLabel = (score: number): { label: string; color: string } => {
-    if (score >= 80) return { label: 'Excellent Value', color: 'bg-green-100 text-green-800 border-green-300' }
-    if (score >= 60) return { label: 'Good Value', color: 'bg-blue-100 text-blue-800 border-blue-300' }
-    if (score >= 40) return { label: 'Fair Value', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' }
-    if (score >= 20) return { label: 'Poor Value', color: 'bg-orange-100 text-orange-800 border-orange-300' }
+    if (score >= 85) return { label: 'Excellent Value', color: 'bg-green-100 text-green-800 border-green-300' }
+    if (score >= 70) return { label: 'Good Value', color: 'bg-blue-100 text-blue-800 border-blue-300' }
+    if (score >= 55) return { label: 'Fair Value', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' }
+    if (score >= 35) return { label: 'Poor Value', color: 'bg-orange-100 text-orange-800 border-orange-300' }
     if (score > 0) return { label: 'Very Poor Value', color: 'bg-red-100 text-red-800 border-red-300' }
-    return { label: 'Enter Cost', color: 'bg-gray-100 text-gray-600 border-gray-300' }
+    return { label: 'Enter Details', color: 'bg-gray-100 text-gray-600 border-gray-300' }
   }
 
   // Improved helper function to safely extract values from complex Airtable objects
