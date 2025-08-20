@@ -35,6 +35,14 @@ interface Band {
   dateAnalyzed: string
   confidenceLevel: 'High' | 'Medium' | 'Low'
   aiAnalysisNotes: string
+  // NEW: Performance tracking fields
+  hasPlayed?: 'Yes' | 'No'
+  overallVibe?: number
+  overallAttendance?: number
+  bandBookingCost?: number
+  wouldBookAgain?: 'Yes' | 'No' | 'Maybe'
+  openerHeadliner?: 'Opening' | 'Headliner'
+  mostRecentPerformanceDate?: string
 }
 
 interface RankingFocus {
@@ -333,6 +341,7 @@ export default function BandDashboard() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRecommendation, setSelectedRecommendation] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
+  const [selectedPerformanceStatus, setSelectedPerformanceStatus] = useState<string>('all') // NEW: Performance filter
   const [rankingFocus, setRankingFocus] = useState<string>('hidden_gems')
   const [sortBy, setSortBy] = useState<'score' | 'name' | 'followers'>('score')
   const [isLoading, setIsLoading] = useState(true)
@@ -602,7 +611,15 @@ const safeExtractValue = (field: any, fallback: any = null) => {
         lastUpdated: safeExtractValue(record['Last Updated'] || record.lastUpdated, new Date().toISOString()),
         dateAnalyzed: safeExtractValue(record['Date Analyzed'] || record.dateAnalyzed, new Date().toISOString()),
         confidenceLevel: safeExtractValue(record['Draw Confidence Level'] || record.confidenceLevel, 'Medium') as 'High' | 'Medium' | 'Low',
-        aiAnalysisNotes: safeExtractValue(record['AI Analysis Notes'] || record.aiAnalysisNotes, 'No analysis notes available')
+        aiAnalysisNotes: safeExtractValue(record['AI Analysis Notes'] || record.aiAnalysisNotes, 'No analysis notes available'),
+        // NEW: Performance tracking fields from Airtable
+        hasPlayed: safeExtractValue(record['Has Played?'] || record.hasPlayed, 'No') as 'Yes' | 'No',
+        overallVibe: Number(safeExtractValue(record['Overall Vibe'] || record.overallVibe, 0)) || undefined,
+        overallAttendance: Number(safeExtractValue(record['Overall Attendance'] || record.overallAttendance, 0)) || undefined,
+        bandBookingCost: Number(safeExtractValue(record['Band Booking Cost'] || record.bandBookingCost, 0)) || undefined,
+        wouldBookAgain: safeExtractValue(record['Would Book Again?'] || record.wouldBookAgain, undefined) as 'Yes' | 'No' | 'Maybe' | undefined,
+        openerHeadliner: safeExtractValue(record['Opener/Headliner?'] || record.openerHeadliner, undefined) as 'Opening' | 'Headliner' | undefined,
+        mostRecentPerformanceDate: safeExtractValue(record['Most Recent Performance Date'] || record.mostRecentPerformanceDate, undefined)
       }
       
       console.log(`✅ Transformed band: ${band.name} (Score components: G:${band.growthMomentumScore}, F:${band.fanEngagementScore}, D:${band.digitalPopularityScore}, L:${band.livePotentialScore}, V:${band.venueFitScore}, Geo:${band.geographicFitScore}, Cost:${band.costEffectivenessScore})`)
@@ -770,7 +787,12 @@ const safeExtractValue = (field: any, fallback: any = null) => {
       const matchesRecommendation = selectedRecommendation === 'all' || band.recommendation === selectedRecommendation
       const matchesStatus = selectedStatus === 'all' || band.bookingStatus === selectedStatus
       
-      return matchesSearch && matchesRecommendation && matchesStatus
+      // NEW: Performance status filter
+      const matchesPerformanceStatus = selectedPerformanceStatus === 'all' || 
+        (selectedPerformanceStatus === 'played' && band.hasPlayed === 'Yes') ||
+        (selectedPerformanceStatus === 'not-played' && (band.hasPlayed === 'No' || !band.hasPlayed))
+      
+      return matchesSearch && matchesRecommendation && matchesStatus && matchesPerformanceStatus
     })
 
     // Sort bands
@@ -782,7 +804,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
     })
 
     setFilteredBands(filtered)
-  }, [bands, searchTerm, selectedRecommendation, selectedStatus, sortBy])
+  }, [bands, searchTerm, selectedRecommendation, selectedStatus, selectedPerformanceStatus, sortBy])
 
   // Toggle card expansion
   const toggleCardExpansion = (bandId: string) => {
@@ -935,7 +957,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
             </div>
 
             {/* Search and Filters */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
               {/* Search */}
               <div className="relative sm:col-span-2 lg:col-span-1">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
@@ -947,6 +969,17 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+
+              {/* Performance Status Filter - NEW */}
+              <select
+                value={selectedPerformanceStatus}
+                onChange={(e) => setSelectedPerformanceStatus(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 sm:py-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
+              >
+                <option value="all">All Bands</option>
+                <option value="played">Bands Who Played</option>
+                <option value="not-played">Bands Not Played</option>
+              </select>
 
               {/* Recommendation Filter */}
               <select
@@ -1006,20 +1039,28 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                           {band.recommendation}
                         </span>
                         <span className="text-xs sm:text-sm text-gray-500">{band.bookingStatus}</span>
+                        {/* NEW: Performance Status Badge */}
+                        {band.hasPlayed === 'Yes' && (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full border bg-green-100 text-green-800 border-green-200 w-fit">
+                            ✓ Played
+                          </span>
+                        )}
                       </div>
                       
-                      {/* NEW: Band Status Dropdown */}
-                      <div className="mt-2">
-                        <select
-                          onChange={(e) => handleBandStatusChange(band.id, band.name, e.target.value)}
-                          className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent"
-                          defaultValue=""
-                        >
-                          <option value="" disabled>Band Status</option>
-                          <option value="Band Not Played">Band Not Played</option>
-                          <option value="Band Played">Band Played</option>
-                        </select>
-                      </div>
+                      {/* NEW: Band Status Dropdown - Only show if band hasn't played */}
+                      {band.hasPlayed !== 'Yes' && (
+                        <div className="mt-2">
+                          <select
+                            onChange={(e) => handleBandStatusChange(band.id, band.name, e.target.value)}
+                            className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent"
+                            defaultValue=""
+                          >
+                            <option value="" disabled>Band Status</option>
+                            <option value="Band Not Played">Band Not Played</option>
+                            <option value="Band Played">Band Played</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="text-center sm:text-right flex-shrink-0">
@@ -1103,6 +1144,117 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                           type="number"
                           placeholder="Enter estimate..."
                           value={localDrawEstimates[band.id] || ''}
+                          onChange={(e) => updateLocalDrawEstimate(band.id, Number(e.target.value))}
+                          className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        {/* Original Draw Estimate Display */}
+                        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-center">
+                          <div className="text-xs text-green-700 font-medium">📊 Original Estimate</div>
+                          <div className="text-sm font-semibold text-green-900">
+                            {band.estimatedDraw}
+                            {hasManualDrawInput(band) && (
+                              <span className="text-xs text-green-600 block">(overridden)</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Calculations */}
+                      <div className="text-center">
+                        <div className="text-xs text-blue-700 mb-1">Financial Breakdown</div>
+                        {(() => {
+                          const effectiveCost = getEffectiveCost(band)
+                          const effectiveDraw = getEffectiveDraw(band)
+                          const revenuePerCustomer = calculateRevenuePerCustomer(effectiveCost, effectiveDraw)
+                          
+                          return (
+                            <div className="space-y-1">
+                              {effectiveCost > 0 && effectiveDraw > 0 && (
+                                <>
+                                  <div className="text-xs text-blue-600">
+                                    Cost per attendee: ${Math.round(revenuePerCustomer)}
+                                  </div>
+                                  <div className="text-xs text-blue-600">
+                                    Revenue needed per person: ${Math.round(revenuePerCustomer)}
+                                  </div>
+                                </>
+                              )}
+                              <div className="text-xs text-gray-500">
+                                {hasManualInput(band) ? 'Manual quote' : band.aiCostEstimate ? 'AI quote' : 'No cost'} • {hasManualDrawInput(band) ? 'Manual draw' : 'Original draw'}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </div>
+
+                      {/* Value Rating */}
+                      <div className="text-center">
+                        {(() => {
+                          const effectiveCost = getEffectiveCost(band)
+                          const effectiveDraw = getEffectiveDraw(band)
+                          const costScore = calculateCostEffectivenessWithDraw(effectiveCost, effectiveDraw)
+                          const { label, color } = getCostEffectivenessLabel(costScore)
+                          return (
+                            <div>
+                              <div className="text-xs text-blue-700 mb-1">Value Rating</div>
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full border ${color}`}>
+                                {label}
+                              </span>
+                              {effectiveCost > 0 && effectiveDraw > 0 && (
+                                <div className="text-xs text-blue-600 mt-1">Score: {costScore}/100</div>
+                              )}
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* NEW: Performance History Section */}
+                  {band.hasPlayed === 'Yes' && (
+                    <div className="mb-6 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <h4 className="text-sm font-medium text-green-900 mb-3">🎤 Performance History</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-green-900">
+                            {band.overallVibe ? '★'.repeat(band.overallVibe) + '☆'.repeat(5 - band.overallVibe) : 'N/A'}
+                          </div>
+                          <div className="text-xs text-green-700">Overall Vibe</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-green-900">
+                            {band.overallAttendance || 'N/A'}
+                          </div>
+                          <div className="text-xs text-green-700">Actual Attendance</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-green-900">
+                            {band.bandBookingCost ? `${band.bandBookingCost.toLocaleString()}` : 'N/A'}
+                          </div>
+                          <div className="text-xs text-green-700">Actual Cost</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-green-900">
+                            {band.wouldBookAgain || 'N/A'}
+                          </div>
+                          <div className="text-xs text-green-700">Book Again?</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-green-900">
+                            {band.openerHeadliner || 'N/A'}
+                          </div>
+                          <div className="text-xs text-green-700">Slot</div>
+                        </div>
+                      </div>
+                      {band.mostRecentPerformanceDate && (
+                        <div className="mt-3 text-center">
+                          <div className="text-xs text-green-600">
+                            Last performed: {new Date(band.mostRecentPerformanceDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )} || ''}
                           onChange={(e) => updateLocalDrawEstimate(band.id, Number(e.target.value))}
                           className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
@@ -1277,9 +1429,9 @@ const safeExtractValue = (field: any, fallback: any = null) => {
               </div>
               <div className="text-center p-3 bg-gray-50 rounded-lg">
                 <div className="text-xl sm:text-2xl font-bold text-gray-600">
-                  {filteredBands.filter(b => b.bookingStatus === 'Booked').length}
+                  {filteredBands.filter(b => b.hasPlayed === 'Yes').length}
                 </div>
-                <div className="text-xs sm:text-sm text-gray-500">Booked</div>
+                <div className="text-xs sm:text-sm text-gray-500">Bands Played</div>
               </div>
             </div>
           </div>
@@ -1300,4 +1452,4 @@ const safeExtractValue = (field: any, fallback: any = null) => {
     </div>
   )
 }
-                         
+                        
