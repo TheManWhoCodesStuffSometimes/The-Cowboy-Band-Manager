@@ -1109,7 +1109,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
               {expandedCards.has(band.id) && (
                 <div className="border-t border-gray-200 bg-gray-50 p-4 sm:p-6">
                   
-                  {/* MOVED: Cost Effectiveness Analysis Section */}
+                  {/* Cost Effectiveness Analysis Section */}
                   <div className="mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <h4 className="text-sm font-medium text-blue-900 mb-3">💰 Cost Effectiveness Analysis</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4 items-end">
@@ -1136,7 +1136,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                           </div>
                         )}
                       </div>
-
+              
                       {/* Draw Input */}
                       <div>
                         <label className="block text-xs font-medium text-blue-700 mb-1">Expected Attendance</label>
@@ -1158,7 +1158,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                           </div>
                         </div>
                       </div>
-
+              
                       {/* Calculations */}
                       <div className="text-center">
                         <div className="text-xs text-blue-700 mb-1">Financial Breakdown</div>
@@ -1186,7 +1186,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                           )
                         })()}
                       </div>
-
+              
                       {/* Value Rating */}
                       <div className="text-center">
                         {(() => {
@@ -1209,8 +1209,8 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                       </div>
                     </div>
                   </div>
-
-                  {/* NEW: Performance History Section */}
+              
+                  {/* Performance History Section */}
                   {band.hasPlayed === 'Yes' && (
                     <div className="mb-6 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
                       <h4 className="text-sm font-medium text-green-900 mb-3">🎤 Performance History</h4>
@@ -1229,7 +1229,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                         </div>
                         <div className="text-center">
                           <div className="text-lg font-semibold text-green-900">
-                            {band.bandBookingCost ? `${band.bandBookingCost.toLocaleString()}` : 'N/A'}
+                            {band.bandBookingCost ? `$${band.bandBookingCost.toLocaleString()}` : 'N/A'}
                           </div>
                           <div className="text-xs text-green-700">Actual Cost</div>
                         </div>
@@ -1255,22 +1255,15 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                       )}
                     </div>
                   )}
-                          onChange={(e) => updateLocalDrawEstimate(band.id, Number(e.target.value))}
-                          className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        {/* Original Draw Estimate Display */}
-                        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-center">
-                          <div className="text-xs text-green-700 font-medium">📊 Original Estimate</div>
-                          <div className="text-sm font-semibold text-green-900">
-                            {band.estimatedDraw}
-                            {hasManualDrawInput(band) && (
-                              <span className="text-xs text-green-600 block">(overridden)</span>
-                            )}
-                          </div>
-                        </div>
+              
+                  {/* Score Breakdown */}
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Score Breakdown</h4>
+                    <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 sm:gap-3">
+                      <div className="text-center">
+                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.growthMomentumScore}</div>
+                        <div className="text-xs text-gray-500">Growth</div>
                       </div>
-
-                      {/* Calculations */}
                       <div className="text-center">
                         <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.fanEngagementScore}</div>
                         <div className="text-xs text-gray-500">Engagement</div>
@@ -1297,7 +1290,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                       </div>
                     </div>
                   </div>
-
+              
                   {/* Additional YouTube Stats */}
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">YouTube Analytics</h4>
@@ -1322,7 +1315,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                       </div>
                     </div>
                   </div>
-
+              
                   {/* Key Strengths & Concerns */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
                     <div>
@@ -1342,7 +1335,7 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                       </div>
                     </div>
                   </div>
-
+              
                   {/* AI Analysis Notes */}
                   {band.aiAnalysisNotes && (
                     <div className="mb-6">
@@ -1352,12 +1345,12 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                       </div>
                     </div>
                   )}
-
+              
                   {/* Actions & Status */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-200 space-y-3 sm:space-y-0">
                     <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                       {band.spotifyUrl && (
-                        <a
+                        
                           href={band.spotifyUrl}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -1388,9 +1381,6 @@ const safeExtractValue = (field: any, fallback: any = null) => {
                   </div>
                 </div>
               )}
-            </div>
-          ))}
-        </div>
 
         {/* No Results Message */}
         {filteredBands.length === 0 && (
