@@ -1,4 +1,4 @@
-// app/dj/page.tsx - Mobile-optimized DJ Dashboard
+// app/dj/page.tsx - Updated for new unified API response
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -14,6 +14,12 @@ export default function DjDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [stats, setStats] = useState({
+    totalRequests: 0,
+    availableRequests: 0,
+    blacklistedSongs: 0,
+    songsOnCooldown: 0
+  })
   const router = useRouter()
 
   const COOLDOWN_DURATION = 2 * 60 * 60 * 1000 // 2 hours in milliseconds
@@ -32,30 +38,44 @@ export default function DjDashboard() {
     return `${artist.toLowerCase().trim().replace(/\s+/g, '-')}-${title.toLowerCase().trim().replace(/\s+/g, '-')}`
   }
 
-  // Fetch DJ data from API
+  // Fetch DJ data from new unified API
   const fetchDjData = async () => {
     try {
       setIsLoading(true)
       setError(null)
 
-      // Fetch from our API endpoints
-      const [requestsResponse, blacklistResponse, cooldownResponse] = await Promise.all([
-        fetch('/api/dj/requests'),
-        fetch('/api/dj/blacklist'),
-        fetch('/api/dj/cooldown')
-      ])
+      // Single API call to get all DJ data
+      const response = await fetch('/api/dj/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'requests.get' })
+      })
 
-      const [requestsData, blacklistData, cooldownData] = await Promise.all([
-        requestsResponse.json(),
-        blacklistResponse.json(),
-        cooldownResponse.json()
-      ])
+      const result = await response.json()
 
-      if (requestsData.success) setSongRequests(requestsData.data || [])
-      if (blacklistData.success) setBlacklist(blacklistData.data || [])
-      if (cooldownData.success) setCooldownSongs(cooldownData.data || [])
-      
-      setLastRefresh(new Date())
+      if (result.success && result.data) {
+        // The response is an array, so we take the first item
+        const djData = Array.isArray(result.data) ? result.data[0] : result.data
+        
+        if (djData.success && djData.data) {
+          // Update state with new unified data structure
+          setSongRequests(djData.data.availableRequests || [])
+          setBlacklist(djData.data.blacklist || [])
+          setCooldownSongs(djData.data.activeCooldown || [])
+          setStats(djData.data.stats || {
+            totalRequests: 0,
+            availableRequests: 0,
+            blacklistedSongs: 0,
+            songsOnCooldown: 0
+          })
+          
+          setLastRefresh(new Date())
+        } else {
+          throw new Error('Invalid data structure from API')
+        }
+      } else {
+        throw new Error(result.error || 'Failed to fetch DJ data')
+      }
 
     } catch (error) {
       console.error('Error fetching DJ data:', error)
@@ -78,11 +98,8 @@ export default function DjDashboard() {
       })
 
       if (response.ok) {
-        setSongRequests(prev => prev.filter(req => req.id !== songId))
-        setCooldownSongs(prev => [...prev, {
-          ...songToPlay,
-          cooldownUntil: Date.now() + COOLDOWN_DURATION
-        }])
+        // Refresh data after playing song instead of manual state management
+        await fetchDjData()
       } else {
         throw new Error('Failed to play song')
       }
@@ -91,7 +108,7 @@ export default function DjDashboard() {
       console.error('Error playing song:', error)
       setError('Failed to play song')
     }
-  }, [songRequests, COOLDOWN_DURATION])
+  }, [songRequests])
 
   // Handle adding song to blacklist
   const handleAddToBlacklist = useCallback(async (title: string, artist: string) => {
@@ -111,13 +128,8 @@ export default function DjDashboard() {
       })
 
       if (response.ok) {
-        setBlacklist(prev => {
-          if (prev.some(s => s.id === songId)) return prev // Already blacklisted
-          return [...prev, blacklistedSong]
-        })
-
-        // Remove any pending requests for this song
-        setSongRequests(prev => prev.filter(req => req.id !== songId))
+        // Refresh data after blacklisting instead of manual state management
+        await fetchDjData()
       } else {
         throw new Error('Failed to blacklist song')
       }
@@ -138,7 +150,8 @@ export default function DjDashboard() {
       })
 
       if (response.ok) {
-        setBlacklist(prev => prev.filter(song => song.id !== songId))
+        // Refresh data after removing from blacklist
+        await fetchDjData()
       } else {
         throw new Error('Failed to remove from blacklist')
       }
@@ -147,14 +160,6 @@ export default function DjDashboard() {
       console.error('Error removing from blacklist:', error)
       setError('Failed to remove from blacklist')
     }
-  }, [])
-
-  // Periodically clean up expired cooldowns
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCooldownSongs(prev => prev.filter(song => song.cooldownUntil > Date.now()))
-    }, 5000) // Check every 5 seconds
-    return () => clearInterval(interval)
   }, [])
 
   // Load data on component mount
@@ -192,7 +197,9 @@ export default function DjDashboard() {
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">DJ Dashboard</h1>
-                <p className="text-xs sm:text-sm lg:text-base text-slate-300">Manage song requests and blacklist</p>
+                <p className="text-xs sm:text-sm lg:text-base text-slate-300">
+                  {stats.availableRequests} available • {stats.blacklistedSongs} blacklisted • {stats.songsOnCooldown} on cooldown
+                </p>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
@@ -244,6 +251,7 @@ export default function DjDashboard() {
           songRequests={songRequests}
           cooldownSongs={cooldownSongs}
           blacklist={blacklist}
+          stats={stats}
           handlePlaySong={handlePlaySong}
           handleAddToBlacklist={handleAddToBlacklist}
           handleRemoveFromBlacklist={handleRemoveFromBlacklist}
