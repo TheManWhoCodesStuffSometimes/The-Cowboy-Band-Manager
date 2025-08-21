@@ -1,4 +1,4 @@
-// components/dj/DjView.tsx - Mobile-optimized DJ interface
+// components/dj/DjView.tsx - Updated for new unified data structure
 'use client'
 
 import React, { useState, useEffect } from 'react'
@@ -12,12 +12,22 @@ interface DjViewProps {
   songRequests: SongRequest[]
   cooldownSongs: CooldownSong[]
   blacklist: BlacklistedSong[]
+  stats: {
+    totalRequests: number
+    availableRequests: number
+    blacklistedSongs: number
+    songsOnCooldown: number
+  }
   handlePlaySong: (songId: string) => void
   handleAddToBlacklist: (title: string, artist: string) => void
   handleRemoveFromBlacklist: (songId: string) => void
 }
 
-const formatTime = (ms: number): string => {
+const formatTime = (cooldownUntil: string): string => {
+  const targetTime = new Date(cooldownUntil).getTime()
+  const now = Date.now()
+  const ms = targetTime - now
+  
   if (ms <= 0) return "00:00:00"
   const totalSeconds = Math.floor(ms / 1000)
   const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0')
@@ -27,12 +37,11 @@ const formatTime = (ms: number): string => {
 }
 
 const CooldownItem: React.FC<{ song: CooldownSong }> = ({ song }) => {
-  const [timeRemaining, setTimeRemaining] = useState(song.cooldownUntil - Date.now())
+  const [timeRemaining, setTimeRemaining] = useState(formatTime(song.cooldownUntil))
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const remaining = song.cooldownUntil - Date.now()
-      setTimeRemaining(remaining > 0 ? remaining : 0)
+      setTimeRemaining(formatTime(song.cooldownUntil))
     }, 1000)
     return () => clearInterval(interval)
   }, [song.cooldownUntil])
@@ -45,7 +54,7 @@ const CooldownItem: React.FC<{ song: CooldownSong }> = ({ song }) => {
       </div>
       <div className="flex items-center space-x-2 text-yellow-400 ml-3 flex-shrink-0">
         <ClockIcon className="w-4 h-4 sm:w-5 sm:h-5"/>
-        <span className="font-mono text-xs sm:text-sm">{formatTime(timeRemaining)}</span>
+        <span className="font-mono text-xs sm:text-sm">{timeRemaining}</span>
       </div>
     </div>
   )
@@ -95,12 +104,21 @@ const DjView: React.FC<DjViewProps> = ({
   songRequests, 
   cooldownSongs, 
   blacklist, 
+  stats,
   handlePlaySong, 
   handleAddToBlacklist, 
   handleRemoveFromBlacklist 
 }) => {
   const [activeTab, setActiveTab] = useState<'requests' | 'cooldown' | 'blacklist'>('requests')
-  const sortedRequests = [...songRequests].sort((a, b) => b.requestCount - a.requestCount)
+  
+  // Sort requests by request count (if available), otherwise by title
+  const sortedRequests = [...songRequests].sort((a, b) => {
+    if (a.requestCount && b.requestCount) {
+      return b.requestCount - a.requestCount
+    }
+    return a.title.localeCompare(b.title)
+  })
+  
   const sortedBlacklist = [...blacklist].sort((a, b) => a.title.localeCompare(b.title))
 
   // Mobile tab navigation
@@ -127,12 +145,34 @@ const DjView: React.FC<DjViewProps> = ({
 
   return (
     <div className="w-full max-w-7xl mx-auto">
+      {/* Stats Summary Bar */}
+      <div className="mb-6 bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+          <div className="bg-slate-900/60 rounded-lg p-3">
+            <div className="text-2xl font-bold text-cyan-400">{stats.totalRequests}</div>
+            <div className="text-sm text-slate-400">Total Requests</div>
+          </div>
+          <div className="bg-slate-900/60 rounded-lg p-3">
+            <div className="text-2xl font-bold text-green-400">{stats.availableRequests}</div>
+            <div className="text-sm text-slate-400">Available</div>
+          </div>
+          <div className="bg-slate-900/60 rounded-lg p-3">
+            <div className="text-2xl font-bold text-yellow-400">{stats.songsOnCooldown}</div>
+            <div className="text-sm text-slate-400">On Cooldown</div>
+          </div>
+          <div className="bg-slate-900/60 rounded-lg p-3">
+            <div className="text-2xl font-bold text-red-400">{stats.blacklistedSongs}</div>
+            <div className="text-sm text-slate-400">Blacklisted</div>
+          </div>
+        </div>
+      </div>
+
       {/* Desktop Layout */}
       <div className="hidden lg:grid lg:grid-cols-3 gap-8">
-        {/* Top Requests */}
+        {/* Available Requests */}
         <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 shadow-lg shadow-cyan-500/10">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-cyan-400">Top Requests</h2>
+            <h2 className="text-2xl font-bold text-cyan-400">Available Requests</h2>
             <span className="bg-cyan-500 text-slate-900 px-2 py-1 rounded-full text-sm font-bold">
               {sortedRequests.length}
             </span>
@@ -145,9 +185,11 @@ const DjView: React.FC<DjViewProps> = ({
                   <p className="text-sm text-slate-400 truncate">{song.artist}</p>
                 </div>
                 <div className="flex items-center space-x-2 ml-4">
-                  <span className="text-lg font-bold bg-cyan-500 text-white rounded-full h-8 w-8 flex items-center justify-center flex-shrink-0">
-                    {song.requestCount}
-                  </span>
+                  {song.requestCount && (
+                    <span className="text-lg font-bold bg-cyan-500 text-white rounded-full h-8 w-8 flex items-center justify-center flex-shrink-0">
+                      {song.requestCount}
+                    </span>
+                  )}
                   <button 
                     onClick={() => handlePlaySong(song.id)}
                     title="Play Song"
@@ -166,7 +208,7 @@ const DjView: React.FC<DjViewProps> = ({
               </div>
             )) : (
               <div className="text-center py-8">
-                <p className="text-slate-400 italic">No requests yet. The night is young!</p>
+                <p className="text-slate-400 italic">No available requests. Songs may be on cooldown or blacklisted.</p>
               </div>
             )}
           </div>
@@ -181,7 +223,7 @@ const DjView: React.FC<DjViewProps> = ({
             </span>
           </div>
           <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
-            {cooldownSongs.length > 0 ? [...cooldownSongs].sort((a,b) => b.cooldownUntil - a.cooldownUntil).map((song) => (
+            {cooldownSongs.length > 0 ? cooldownSongs.map((song) => (
               <CooldownItem key={song.id} song={song} />
             )) : (
               <div className="text-center py-8">
@@ -240,7 +282,7 @@ const DjView: React.FC<DjViewProps> = ({
           {/* Requests Tab */}
           {activeTab === 'requests' && (
             <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-cyan-400 mb-4">Top Requests</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-cyan-400 mb-4">Available Requests</h2>
               <div className="space-y-3 max-h-[70vh] overflow-y-auto">
                 {sortedRequests.length > 0 ? sortedRequests.map((song) => (
                   <div key={song.id} className="flex items-center justify-between p-3 sm:p-4 bg-slate-900/60 rounded-lg border border-slate-700">
@@ -249,9 +291,11 @@ const DjView: React.FC<DjViewProps> = ({
                       <p className="text-xs sm:text-sm text-slate-400 truncate">{song.artist}</p>
                     </div>
                     <div className="flex items-center space-x-2 ml-3">
-                      <span className="text-sm sm:text-lg font-bold bg-cyan-500 text-white rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center flex-shrink-0">
-                        {song.requestCount}
-                      </span>
+                      {song.requestCount && (
+                        <span className="text-sm sm:text-lg font-bold bg-cyan-500 text-white rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center flex-shrink-0">
+                          {song.requestCount}
+                        </span>
+                      )}
                       <button 
                         onClick={() => handlePlaySong(song.id)}
                         className="bg-green-500 text-white p-2 rounded-full transition-colors hover:bg-green-400 focus:outline-none focus:ring-2 focus:ring-green-400 flex-shrink-0 touch-manipulation"
@@ -268,7 +312,7 @@ const DjView: React.FC<DjViewProps> = ({
                   </div>
                 )) : (
                   <div className="text-center py-8">
-                    <p className="text-slate-400 italic">No requests yet. The night is young!</p>
+                    <p className="text-slate-400 italic">No available requests. Songs may be on cooldown or blacklisted.</p>
                   </div>
                 )}
               </div>
@@ -280,7 +324,7 @@ const DjView: React.FC<DjViewProps> = ({
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-yellow-400 mb-4">On Cooldown</h2>
               <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-                {cooldownSongs.length > 0 ? [...cooldownSongs].sort((a,b) => b.cooldownUntil - a.cooldownUntil).map((song) => (
+                {cooldownSongs.length > 0 ? cooldownSongs.map((song) => (
                   <CooldownItem key={song.id} song={song} />
                 )) : (
                   <div className="text-center py-8">
