@@ -212,17 +212,31 @@ export default function DjDashboard() {
 
   // Handle removing song from blacklist
   const handleRemoveFromBlacklist = useCallback(async (songId: string) => {
+    // Find the song being removed for potential revert
+    const songToRemove = blacklist.find(song => song.id === songId)
+    if (!songToRemove) return
+
+    // Optimistically update the UI immediately
+    setBlacklist(prev => prev.filter(song => song.id !== songId))
+    setStats(prev => ({
+      ...prev,
+      blacklistedSongs: prev.blacklistedSongs - 1
+    }))
+
     try {
       const response = await fetch('/api/dj/blacklist', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ songId })
+        body: JSON.stringify({ songId: songToRemove.songId || songId })
       })
 
-      if (response.ok) {
-        // Refresh data after removing from blacklist
-        await fetchDjData()
-      } else {
+      if (!response.ok) {
+        // If API call fails, revert the optimistic update
+        setBlacklist(prev => [...prev, songToRemove])
+        setStats(prev => ({
+          ...prev,
+          blacklistedSongs: prev.blacklistedSongs + 1
+        }))
         throw new Error('Failed to remove from blacklist')
       }
 
@@ -230,7 +244,7 @@ export default function DjDashboard() {
       console.error('Error removing from blacklist:', error)
       setError('Failed to remove from blacklist')
     }
-  }, [])
+  }, [blacklist])
 
   // Load data on component mount
   useEffect(() => {
