@@ -111,15 +111,26 @@ const DjView: React.FC<DjViewProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'requests' | 'cooldown' | 'blacklist'>('requests')
   
+  // Filter out any invalid entries that might have slipped through
+  const validRequests = songRequests.filter(song => 
+    song && song.title && song.artist && song.title.trim() && song.artist.trim()
+  )
+  const validCooldown = cooldownSongs.filter(song => 
+    song && song.title && song.artist && song.title.trim() && song.artist.trim()
+  )
+  const validBlacklist = blacklist.filter(song => 
+    song && song.title && song.artist && song.title.trim() && song.artist.trim()
+  )
+  
   // Sort requests by request count (if available), otherwise by title
-  const sortedRequests = [...songRequests].sort((a, b) => {
+  const sortedRequests = [...validRequests].sort((a, b) => {
     if (a.requestCount && b.requestCount) {
       return b.requestCount - a.requestCount
     }
     return a.title.localeCompare(b.title)
   })
   
-  const sortedBlacklist = [...blacklist].sort((a, b) => a.title.localeCompare(b.title))
+  const sortedBlacklist = [...validBlacklist].sort((a, b) => a.title.localeCompare(b.title))
 
   // Mobile tab navigation
   const TabButton: React.FC<{ 
