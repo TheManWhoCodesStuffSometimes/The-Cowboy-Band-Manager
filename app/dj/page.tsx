@@ -148,8 +148,35 @@ export default function DjDashboard() {
       id: songId, 
       songId: songId,
       title, 
-      artist 
+      artist,
+      addedAt: new Date().toISOString()
     }
+
+    // Find if this song is currently in requests
+    const existingSongRequest = songRequests.find(req => 
+      req.title.toLowerCase() === title.toLowerCase() && 
+      req.artist.toLowerCase() === artist.toLowerCase()
+    )
+
+    // Optimistically update the UI immediately
+    if (existingSongRequest) {
+      setSongRequests(prev => prev.filter(req => req.id !== existingSongRequest.id))
+      setStats(prev => ({
+        ...prev,
+        availableRequests: prev.availableRequests - 1,
+        blacklistedSongs: prev.blacklistedSongs + 1
+      }))
+    } else {
+      setStats(prev => ({
+        ...prev,
+        blacklistedSongs: prev.blacklistedSongs + 1
+      }))
+    }
+    
+    setBlacklist(prev => {
+      if (prev.some(s => s.songId === songId)) return prev // Already blacklisted
+      return [...prev, blacklistedSong]
+    })
 
     try {
       const response = await fetch('/api/dj/blacklist', {
@@ -158,10 +185,22 @@ export default function DjDashboard() {
         body: JSON.stringify(blacklistedSong)
       })
 
-      if (response.ok) {
-        // Refresh data after blacklisting instead of manual state management
-        await fetchDjData()
-      } else {
+      if (!response.ok) {
+        // If API call fails, revert the optimistic update
+        if (existingSongRequest) {
+          setSongRequests(prev => [...prev, existingSongRequest])
+          setStats(prev => ({
+            ...prev,
+            availableRequests: prev.availableRequests + 1,
+            blacklistedSongs: prev.blacklistedSongs - 1
+          }))
+        } else {
+          setStats(prev => ({
+            ...prev,
+            blacklistedSongs: prev.blacklistedSongs - 1
+          }))
+        }
+        setBlacklist(prev => prev.filter(song => song.songId !== songId))
         throw new Error('Failed to blacklist song')
       }
 
@@ -169,7 +208,7 @@ export default function DjDashboard() {
       console.error('Error blacklisting song:', error)
       setError('Failed to blacklist song')
     }
-  }, [])
+  }, [songRequests])
 
   // Handle removing song from blacklist
   const handleRemoveFromBlacklist = useCallback(async (songId: string) => {
