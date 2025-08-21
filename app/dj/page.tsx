@@ -164,11 +164,14 @@ export default function DjDashboard() {
     // Calculate cooldown time (2 hours from now)
     const cooldownUntil = new Date(Date.now() + COOLDOWN_DURATION).toISOString()
 
+    // Use the actual songId (not the record ID) for the API call
+    const actualSongId = songToPlay.songId || generateSongId(songToPlay.title, songToPlay.artist)
+
     // Optimistically update the UI immediately
     setSongRequests(prev => prev.filter(req => req.id !== songId))
     setCooldownSongs(prev => [...prev, {
       id: songToPlay.id,
-      songId: songToPlay.songId || songToPlay.id,
+      songId: actualSongId,
       title: songToPlay.title,
       artist: songToPlay.artist,
       cooldownUntil: cooldownUntil,
@@ -187,7 +190,7 @@ export default function DjDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          songId, 
+          songId: actualSongId, // Send the actual songId, not the record ID
           title: songToPlay.title,
           artist: songToPlay.artist,
           cooldownUntil
@@ -205,6 +208,12 @@ export default function DjDashboard() {
         }))
         throw new Error('Failed to play song')
       }
+
+      console.log('Play song API called with:', {
+        songId: actualSongId,
+        title: songToPlay.title,
+        artist: songToPlay.artist
+      })
 
     } catch (error) {
       console.error('Error playing song:', error)
