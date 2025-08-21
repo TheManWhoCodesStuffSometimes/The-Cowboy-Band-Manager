@@ -38,8 +38,8 @@ export default function DjDashboard() {
     return `${artist.toLowerCase().trim().replace(/\s+/g, '-')}-${title.toLowerCase().trim().replace(/\s+/g, '-')}`
   }
 
-  // Helper function to filter out empty objects and validate data
-  const filterValidSongs = <T extends { title?: string; artist?: string; id?: string }>(songs: T[]): T[] => {
+  // Helper functions to filter out empty objects and validate data
+  const filterValidRequests = (songs: any[]): SongRequest[] => {
     return songs.filter(song => 
       song && 
       typeof song === 'object' && 
@@ -47,7 +47,53 @@ export default function DjDashboard() {
       song.artist && 
       song.title.trim() !== '' && 
       song.artist.trim() !== ''
-    )
+    ).map(song => ({
+      id: song.id || song.songId || generateSongId(song.title, song.artist),
+      songId: song.songId || song.id,
+      title: song.title,
+      artist: song.artist,
+      requestCount: song.requestCount || 1,
+      createdAt: song.createdAt,
+      createdTime: song.createdTime
+    }))
+  }
+
+  const filterValidBlacklist = (songs: any[]): BlacklistedSong[] => {
+    return songs.filter(song => 
+      song && 
+      typeof song === 'object' && 
+      song.title && 
+      song.artist && 
+      song.title.trim() !== '' && 
+      song.artist.trim() !== ''
+    ).map(song => ({
+      id: song.id || song.songId || generateSongId(song.title, song.artist),
+      songId: song.songId || song.id || generateSongId(song.title, song.artist),
+      title: song.title,
+      artist: song.artist,
+      addedAt: song.addedAt,
+      createdTime: song.createdTime
+    }))
+  }
+
+  const filterValidCooldown = (songs: any[]): CooldownSong[] => {
+    return songs.filter(song => 
+      song && 
+      typeof song === 'object' && 
+      song.title && 
+      song.artist && 
+      song.cooldownUntil &&
+      song.title.trim() !== '' && 
+      song.artist.trim() !== ''
+    ).map(song => ({
+      id: song.id || song.songId || generateSongId(song.title, song.artist),
+      songId: song.songId || song.id || generateSongId(song.title, song.artist),
+      title: song.title,
+      artist: song.artist,
+      cooldownUntil: song.cooldownUntil,
+      playedAt: song.playedAt,
+      createdTime: song.createdTime
+    }))
   }
 
   // Fetch DJ data from new unified API
@@ -71,9 +117,9 @@ export default function DjDashboard() {
         
         if (djData.success && djData.data) {
           // Filter out empty objects and validate data before setting state
-          const validRequests = filterValidSongs(djData.data.availableRequests || [])
-          const validBlacklist = filterValidSongs(djData.data.blacklist || [])
-          const validCooldown = filterValidSongs(djData.data.activeCooldown || [])
+          const validRequests = filterValidRequests(djData.data.availableRequests || [])
+          const validBlacklist = filterValidBlacklist(djData.data.blacklist || [])
+          const validCooldown = filterValidCooldown(djData.data.activeCooldown || [])
           
           // Update state with filtered valid data
           setSongRequests(validRequests)
