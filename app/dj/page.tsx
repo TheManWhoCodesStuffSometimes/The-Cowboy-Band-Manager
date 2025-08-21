@@ -38,6 +38,18 @@ export default function DjDashboard() {
     return `${artist.toLowerCase().trim().replace(/\s+/g, '-')}-${title.toLowerCase().trim().replace(/\s+/g, '-')}`
   }
 
+  // Helper function to filter out empty objects and validate data
+  const filterValidSongs = <T extends { title?: string; artist?: string; id?: string }>(songs: T[]): T[] => {
+    return songs.filter(song => 
+      song && 
+      typeof song === 'object' && 
+      song.title && 
+      song.artist && 
+      song.title.trim() !== '' && 
+      song.artist.trim() !== ''
+    )
+  }
+
   // Fetch DJ data from new unified API
   const fetchDjData = async () => {
     try {
@@ -58,18 +70,31 @@ export default function DjDashboard() {
         const djData = Array.isArray(result.data) ? result.data[0] : result.data
         
         if (djData.success && djData.data) {
-          // Update state with new unified data structure
-          setSongRequests(djData.data.availableRequests || [])
-          setBlacklist(djData.data.blacklist || [])
-          setCooldownSongs(djData.data.activeCooldown || [])
-          setStats(djData.data.stats || {
-            totalRequests: 0,
-            availableRequests: 0,
-            blacklistedSongs: 0,
-            songsOnCooldown: 0
+          // Filter out empty objects and validate data before setting state
+          const validRequests = filterValidSongs(djData.data.availableRequests || [])
+          const validBlacklist = filterValidSongs(djData.data.blacklist || [])
+          const validCooldown = filterValidSongs(djData.data.activeCooldown || [])
+          
+          // Update state with filtered valid data
+          setSongRequests(validRequests)
+          setBlacklist(validBlacklist)
+          setCooldownSongs(validCooldown)
+          
+          // Update stats but use actual filtered counts instead of backend stats
+          setStats({
+            totalRequests: djData.data.stats?.totalRequests || 0,
+            availableRequests: validRequests.length,
+            blacklistedSongs: validBlacklist.length,
+            songsOnCooldown: validCooldown.length
           })
           
           setLastRefresh(new Date())
+          
+          console.log('Filtered data:', {
+            requests: validRequests.length,
+            blacklist: validBlacklist.length,
+            cooldown: validCooldown.length
+          })
         } else {
           throw new Error('Invalid data structure from API')
         }
