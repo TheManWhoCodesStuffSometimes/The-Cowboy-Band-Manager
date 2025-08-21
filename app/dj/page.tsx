@@ -226,7 +226,7 @@ export default function DjDashboard() {
     const songId = generateSongId(title, artist)
     const blacklistedSong = { 
       id: songId, 
-      songId: songId,
+      songId: songId, // Use the generated songId format
       title, 
       artist,
       addedAt: new Date().toISOString()
@@ -262,7 +262,11 @@ export default function DjDashboard() {
       const response = await fetch('/api/dj/blacklist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(blacklistedSong)
+        body: JSON.stringify({
+          songId: songId, // Send the generated songId format
+          title,
+          artist
+        })
       })
 
       if (!response.ok) {
@@ -283,6 +287,12 @@ export default function DjDashboard() {
         setBlacklist(prev => prev.filter(song => song.songId !== songId))
         throw new Error('Failed to blacklist song')
       }
+
+      console.log('Blacklist API called with:', {
+        songId: songId,
+        title,
+        artist
+      })
 
     } catch (error) {
       console.error('Error blacklisting song:', error)
