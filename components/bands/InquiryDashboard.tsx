@@ -34,7 +34,6 @@ interface Band {
   lastUpdated: string
   dateAnalyzed: string
   confidenceLevel: 'High' | 'Medium' | 'Low'
-  aiAnalysisNotes: string
   // Performance tracking fields (for filtering out played bands)
   hasPlayed?: 'Yes' | 'No'
 }
@@ -52,6 +51,10 @@ interface PerformanceData {
   bandBookingCost: number
   wouldBookAgain: 'Yes' | 'No' | 'Maybe'
   openingHeadliner: 'Opening' | 'Headliner'
+}
+
+interface RemovalData {
+  reasons: string[]
 }
 
 const rankingFocusOptions: RankingFocus[] = [
@@ -326,6 +329,135 @@ const PerformanceFormModal: React.FC<{
   )
 }
 
+// Band Removal Modal Component
+const BandRemovalModal: React.FC<{
+  isOpen: boolean
+  onClose: () => void
+  bandName: string
+  bandId: string
+  onSubmit: (data: RemovalData) => void
+}> = ({ isOpen, onClose, bandName, bandId, onSubmit }) => {
+  const [selectedReasons, setSelectedReasons] = useState<string[]>([])
+
+  const removalReasons = [
+    'Not enough digital presence',
+    'Not correct genre fit',
+    'Band was unprofessional',
+    'Too expensive for potential draw',
+    'Geographic fit concerns',
+    'Scheduling conflicts',
+    'Changed business direction',
+    'Other venue requirements'
+  ]
+
+  const toggleReason = (reason: string) => {
+    setSelectedReasons(prev => 
+      prev.includes(reason) 
+        ? prev.filter(r => r !== reason)
+        : [...prev, reason]
+    )
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (selectedReasons.length === 0) {
+      alert('Please select at least one reason for removal.')
+      return
+    }
+    onSubmit({ reasons: selectedReasons })
+    onClose()
+    setSelectedReasons([])
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-gray-900">Remove Band from List</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 p-1"
+            >
+              <XMarkIcon className="h-6 w-6" />
+            </button>
+          </div>
+
+          {/* Band Name */}
+          <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-700 font-medium">Removing from inquiry list:</p>
+            <p className="text-lg font-bold text-red-900">{bandName}</p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* Removal Reasons */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Why are you removing this band? (Select all that apply)
+              </label>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {removalReasons.map((reason) => (
+                  <label
+                    key={reason}
+                    className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedReasons.includes(reason)}
+                      onChange={() => toggleReason(reason)}
+                      className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-700">{reason}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Selected Reasons Summary */}
+            {selectedReasons.length > 0 && (
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <p className="text-xs text-gray-600 mb-2">Selected reasons ({selectedReasons.length}):</p>
+                <div className="flex flex-wrap gap-1">
+                  {selectedReasons.map((reason) => (
+                    <span
+                      key={reason}
+                      className="inline-block px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full"
+                    >
+                      {reason}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Submit Buttons */}
+            <div className="flex space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Remove Band
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function BandInquiryDashboard() {
   const router = useRouter()
   const [refreshCountdown, setRefreshCountdown] = useState<number>(0)
@@ -351,11 +483,15 @@ export default function BandInquiryDashboard() {
   // Performance tracking states
   const [performanceModalOpen, setPerformanceModalOpen] = useState(false)
   const [selectedBandForPerformance, setSelectedBandForPerformance] = useState<{ id: string, name: string } | null>(null)
+  
+  // Band removal states
+  const [removalModalOpen, setRemovalModalOpen] = useState(false)
+  const [selectedBandForRemoval, setSelectedBandForRemoval] = useState<{ id: string, name: string } | null>(null)
 
   // API URLs
   const RETRIEVE_DATA_API = '/api/bands'
   const REFRESH_DATA_API = '/api/bands/refresh'
-  const PERFORMANCE_WEBHOOK_URL = 'https://thayneautomations.app.n8n.cloud/webhook/edit-band-status'
+  const BAND_ACTION_WEBHOOK_URL = 'https://thayneautomations.app.n8n.cloud/webhook/edit-band-status'
 
   // Handle performance form submission
   const handlePerformanceSubmit = async (performanceData: PerformanceData) => {
@@ -365,12 +501,13 @@ export default function BandInquiryDashboard() {
       const payload = {
         bandId: selectedBandForPerformance.id,
         bandName: selectedBandForPerformance.name,
+        bandAction: 'Yes',
         ...performanceData,
         datePerformed: new Date().toISOString(),
         venue: 'The Cowboy Saloon'
       }
 
-      const response = await fetch(PERFORMANCE_WEBHOOK_URL, {
+      const response = await fetch(BAND_ACTION_WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -391,11 +528,49 @@ export default function BandInquiryDashboard() {
     }
   }
 
+  // Handle band removal submission
+  const handleRemovalSubmit = async (removalData: RemovalData) => {
+    if (!selectedBandForRemoval) return
+
+    try {
+      const payload = {
+        bandId: selectedBandForRemoval.id,
+        bandName: selectedBandForRemoval.name,
+        bandAction: 'Band Removed',
+        removalReasons: removalData.reasons,
+        dateRemoved: new Date().toISOString(),
+        venue: 'The Cowboy Saloon'
+      }
+
+      const response = await fetch(BAND_ACTION_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      })
+
+      if (response.ok) {
+        // Remove the band from the inquiry list since it's been rejected
+        setBands(prev => prev.filter(band => band.id !== selectedBandForRemoval.id))
+        console.log('Band removal data submitted successfully')
+      } else {
+        throw new Error('Failed to submit band removal data')
+      }
+    } catch (error) {
+      console.error('Error submitting band removal data:', error)
+      setError('Failed to submit band removal data')
+    }
+  }
+
   // Handle band status change
   const handleBandStatusChange = (bandId: string, bandName: string, status: string) => {
     if (status === 'Band Played') {
       setSelectedBandForPerformance({ id: bandId, name: bandName })
       setPerformanceModalOpen(true)
+    } else if (status === 'Remove Band From List') {
+      setSelectedBandForRemoval({ id: bandId, name: bandName })
+      setRemovalModalOpen(true)
     }
   }
 
@@ -618,7 +793,6 @@ export default function BandInquiryDashboard() {
           lastUpdated: safeExtractValue(record['Last Updated'] || record.lastUpdated, new Date().toISOString()),
           dateAnalyzed: safeExtractValue(record['Date Analyzed'] || record.dateAnalyzed, new Date().toISOString()),
           confidenceLevel: safeExtractValue(record['Draw Confidence Level'] || record.confidenceLevel, 'Medium') as 'High' | 'Medium' | 'Low',
-          aiAnalysisNotes: safeExtractValue(record['AI Analysis Notes'] || record.aiAnalysisNotes, 'No analysis notes available'),
           hasPlayed: safeExtractValue(record['Has Played?'] || record.hasPlayed, 'No') as 'Yes' | 'No'
         }
         
@@ -896,6 +1070,12 @@ export default function BandInquiryDashboard() {
                 >
                   View History
                 </button>
+                <button
+                  onClick={() => router.push('/bands/rejected')}
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm sm:text-base touch-manipulation"
+                >
+                  Rejected Bands
+                </button>
               </div>
             </div>
           </div>
@@ -1038,8 +1218,8 @@ export default function BandInquiryDashboard() {
                           className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent"
                           defaultValue=""
                         >
-                          <option value="" disabled>Band Status</option>
-                          <option value="Band Not Played">Band Not Played</option>
+                          <option value="" disabled>Change Band Status</option>
+                          <option value="Remove Band From List">Remove Band From List</option>
                           <option value="Band Played">Band Played</option>
                         </select>
                       </div>
@@ -1272,16 +1452,6 @@ export default function BandInquiryDashboard() {
                     </div>
                   </div>
               
-                  {/* AI Analysis Notes */}
-                  {band.aiAnalysisNotes && (
-                    <div className="mb-6">
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">AI Analysis Notes</h4>
-                      <div className="bg-white border border-gray-200 rounded-lg p-3">
-                        <p className="text-sm text-gray-600">{band.aiAnalysisNotes}</p>
-                      </div>
-                    </div>
-                  )}
-              
                   {/* Actions & Status */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-200 space-y-3 sm:space-y-0">
                     <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
@@ -1377,6 +1547,18 @@ export default function BandInquiryDashboard() {
         bandName={selectedBandForPerformance?.name || ''}
         bandId={selectedBandForPerformance?.id || ''}
         onSubmit={handlePerformanceSubmit}
+      />
+
+      {/* Band Removal Modal */}
+      <BandRemovalModal
+        isOpen={removalModalOpen}
+        onClose={() => {
+          setRemovalModalOpen(false)
+          setSelectedBandForRemoval(null)
+        }}
+        bandName={selectedBandForRemoval?.name || ''}
+        bandId={selectedBandForRemoval?.id || ''}
+        onSubmit={handleRemovalSubmit}
       />
     </div>
   )
