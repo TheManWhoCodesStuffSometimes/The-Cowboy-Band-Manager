@@ -234,7 +234,7 @@ const DjView: React.FC<DjViewProps> = ({
             </span>
           </div>
           <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
-            {cooldownSongs.length > 0 ? cooldownSongs.map((song) => (
+            {validCooldown.length > 0 ? validCooldown.map((song) => (
               <CooldownItem key={song.id} song={song} />
             )) : (
               <div className="text-center py-8">
@@ -284,7 +284,7 @@ const DjView: React.FC<DjViewProps> = ({
         {/* Tab Navigation */}
         <div className="flex space-x-2 mb-6">
           <TabButton tab="requests" label="Requests" count={sortedRequests.length} color="cyan" />
-          <TabButton tab="cooldown" label="Cooldown" count={cooldownSongs.length} color="yellow" />
+          <TabButton tab="cooldown" label="Cooldown" count={validCooldown.length} color="yellow" />
           <TabButton tab="blacklist" label="Blacklist" count={sortedBlacklist.length} color="red" />
         </div>
 
@@ -335,7 +335,7 @@ const DjView: React.FC<DjViewProps> = ({
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-yellow-400 mb-4">On Cooldown</h2>
               <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-                {cooldownSongs.length > 0 ? cooldownSongs.map((song) => (
+                {validCooldown.length > 0 ? validCooldown.map((song) => (
                   <CooldownItem key={song.id} song={song} />
                 )) : (
                   <div className="text-center py-8">
