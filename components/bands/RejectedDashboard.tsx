@@ -87,16 +87,16 @@ export default function RejectedDashboard() {
     
     const transformedBands = airtableRecords
       .filter(record => {
-        // FILTER FOR REJECTED BANDS ONLY - this is key for the rejected page
-        const hasBeenRejected = safeExtractValue(record['Has Been Rejected?'] || record.hasBeenRejected, 'No')
-        return hasBeenRejected === 'Yes'
+        // FILTER FOR REJECTED BANDS ONLY - check for "Band Removed" status
+        const hasPlayedStatus = safeExtractValue(record['Has Played?'] || record.hasPlayed, 'No')
+        return hasPlayedStatus === 'Band Removed'
       })
       .map((record: any, index: number) => {
         console.log(`🚫 Processing rejected band ${index + 1}:`, record['Band Name'] || record.bandName || 'Unknown')
         
         // Parse rejection reasons if they exist
         let rejectionReasons: string[] = []
-        const reasonsField = safeExtractValue(record['Rejection Reasons'] || record.rejectionReasons, '')
+        const reasonsField = safeExtractValue(record['Reasons for Removal'] || record.reasonsForRemoval || record.rejectionReasons, '')
         if (reasonsField) {
           try {
             // Handle both JSON array and comma-separated string formats
@@ -104,6 +104,7 @@ export default function RejectedDashboard() {
               if (reasonsField.startsWith('[') && reasonsField.endsWith(']')) {
                 rejectionReasons = JSON.parse(reasonsField)
               } else {
+                // Split by comma and clean up
                 rejectionReasons = reasonsField.split(',').map(reason => reason.trim()).filter(Boolean)
               }
             } else if (Array.isArray(reasonsField)) {
@@ -111,7 +112,7 @@ export default function RejectedDashboard() {
             }
           } catch (error) {
             console.warn('Error parsing rejection reasons:', error)
-            rejectionReasons = [reasonsField]
+            rejectionReasons = reasonsField ? [reasonsField] : []
           }
         }
         
@@ -146,7 +147,7 @@ export default function RejectedDashboard() {
           // Rejection tracking fields - these are the key data for rejected bands
           hasBeenRejected: 'Yes' as const,
           rejectionReasons: rejectionReasons,
-          dateRejected: safeExtractValue(record['Date Rejected'] || record.dateRejected, undefined),
+          dateRejected: safeExtractValue(record['Date Rejected'] || record.dateRejected || record['Date Analyzed'] || record.dateAnalyzed, undefined),
           rejectedBy: safeExtractValue(record['Rejected By'] || record.rejectedBy, 'The Cowboy Saloon')
         }
         
