@@ -90,17 +90,48 @@ export default function DjDashboard() {
     const songToPlay = songRequests.find(req => req.id === songId)
     if (!songToPlay) return
 
+    // Calculate cooldown time (2 hours from now)
+    const cooldownUntil = new Date(Date.now() + COOLDOWN_DURATION).toISOString()
+
+    // Optimistically update the UI immediately
+    setSongRequests(prev => prev.filter(req => req.id !== songId))
+    setCooldownSongs(prev => [...prev, {
+      id: songToPlay.id,
+      songId: songToPlay.songId || songToPlay.id,
+      title: songToPlay.title,
+      artist: songToPlay.artist,
+      cooldownUntil: cooldownUntil,
+      playedAt: new Date().toISOString()
+    }])
+    
+    // Update stats optimistically
+    setStats(prev => ({
+      ...prev,
+      availableRequests: prev.availableRequests - 1,
+      songsOnCooldown: prev.songsOnCooldown + 1
+    }))
+
     try {
       const response = await fetch('/api/dj/play-song', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ songId, ...songToPlay })
+        body: JSON.stringify({ 
+          songId, 
+          title: songToPlay.title,
+          artist: songToPlay.artist,
+          cooldownUntil
+        })
       })
 
-      if (response.ok) {
-        // Refresh data after playing song instead of manual state management
-        await fetchDjData()
-      } else {
+      if (!response.ok) {
+        // If API call fails, revert the optimistic update
+        setSongRequests(prev => [...prev, songToPlay])
+        setCooldownSongs(prev => prev.filter(song => song.id !== songId))
+        setStats(prev => ({
+          ...prev,
+          availableRequests: prev.availableRequests + 1,
+          songsOnCooldown: prev.songsOnCooldown - 1
+        }))
         throw new Error('Failed to play song')
       }
 
@@ -108,7 +139,7 @@ export default function DjDashboard() {
       console.error('Error playing song:', error)
       setError('Failed to play song')
     }
-  }, [songRequests])
+  }, [songRequests, COOLDOWN_DURATION])
 
   // Handle adding song to blacklist
   const handleAddToBlacklist = useCallback(async (title: string, artist: string) => {
