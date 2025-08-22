@@ -9,13 +9,14 @@ interface Band {
   id: string
   name: string
   overallScore: number
-  // Enhanced ranking metrics (0-100) - 7 components
+  // Enhanced ranking metrics (0-100) - NOW 6 COMPONENTS (removed cost effectiveness)
   growthMomentumScore: number
   fanEngagementScore: number
   digitalPopularityScore: number
   livePotentialScore: number
   venueFitScore: number
   geographicFitScore: number
+  // Keep cost effectiveness score for display purposes but don't use in ranking
   costEffectivenessScore: number
   recommendation: 'BOOK SOON' | 'STRONG CONSIDER' | 'MAYBE' | 'PASS'
   spotifyFollowers: number
@@ -97,55 +98,55 @@ interface RankingWeights {
   livePotential: number
   venueFit: number
   geographicFit: number
-  costEffectiveness: number
+  // Removed costEffectiveness from weights
 }
 
-// Weighting matrices for 7-component scoring system
+// Updated weighting matrices for 6-component scoring system (removed cost effectiveness)
 const rankingWeights: Record<string, RankingWeights> = {
   hidden_gems: {
-    growthMomentum: 0.25,
-    fanEngagement: 0.25,
+    growthMomentum: 0.30,    // Increased from 0.25
+    fanEngagement: 0.30,     // Increased from 0.25
     digitalPopularity: 0.15,
     livePotential: 0.15,
     venueFit: 0.20,
-    geographicFit: 0.10,
-    costEffectiveness: 0.10
+    geographicFit: 0.10
+    // Removed costEffectiveness: 0.10
   },
   genre_fit: {
-    growthMomentum: 0.08,
-    fanEngagement: 0.22,
+    growthMomentum: 0.10,    // Increased from 0.08
+    fanEngagement: 0.25,     // Increased from 0.22
     digitalPopularity: 0.05,
-    livePotential: 0.18,
-    venueFit: 0.35,
-    geographicFit: 0.12,
-    costEffectiveness: 0.10
+    livePotential: 0.20,     // Increased from 0.18
+    venueFit: 0.40,          // Increased from 0.35
+    geographicFit: 0.10      // Decreased from 0.12
+    // Removed costEffectiveness: 0.10
   },
   proven_draw: {
     growthMomentum: 0.05,
-    fanEngagement: 0.20,
-    digitalPopularity: 0.20,
-    livePotential: 0.25,
+    fanEngagement: 0.25,     // Increased from 0.20
+    digitalPopularity: 0.25, // Increased from 0.20
+    livePotential: 0.30,     // Increased from 0.25
     venueFit: 0.15,
-    geographicFit: 0.10,
-    costEffectiveness: 0.15
+    geographicFit: 0.15      // Increased from 0.10
+    // Removed costEffectiveness: 0.15
   },
   local_buzz: {
-    growthMomentum: 0.20,
-    fanEngagement: 0.25,
+    growthMomentum: 0.25,    // Increased from 0.20
+    fanEngagement: 0.30,     // Increased from 0.25
     digitalPopularity: 0.05,
     livePotential: 0.10,
-    venueFit: 0.25,
-    geographicFit: 0.15,
-    costEffectiveness: 0.10
+    venueFit: 0.30,          // Increased from 0.25
+    geographicFit: 0.20      // Increased from 0.15
+    // Removed costEffectiveness: 0.10
   },
   rising_stars: {
-    growthMomentum: 0.35,
-    fanEngagement: 0.15,
-    digitalPopularity: 0.20,
+    growthMomentum: 0.40,    // Increased from 0.35
+    fanEngagement: 0.20,     // Increased from 0.15
+    digitalPopularity: 0.25, // Increased from 0.20
     livePotential: 0.10,
     venueFit: 0.05,
-    geographicFit: 0.05,
-    costEffectiveness: 0.10
+    geographicFit: 0.05      // Decreased from 0.05
+    // Removed costEffectiveness: 0.10
   }
 }
 
@@ -161,8 +162,8 @@ const applyWeightsToBands = (bands: Band[], focus: string): Band[] => {
       band.digitalPopularityScore * weights.digitalPopularity +
       band.livePotentialScore * weights.livePotential +
       band.venueFitScore * weights.venueFit +
-      band.geographicFitScore * weights.geographicFit +
-      band.costEffectivenessScore * weights.costEffectiveness
+      band.geographicFitScore * weights.geographicFit
+      // Removed cost effectiveness from calculation
     )
   }))
 }
@@ -475,7 +476,7 @@ export default function BandInquiryDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [showFilters, setShowFilters] = useState(false)
-  // Local cost estimates for real-time cost effectiveness analysis
+  // Local cost estimates for real-time financial analysis
   const [localCostEstimates, setLocalCostEstimates] = useState<Record<string, number>>({})
   // Local draw estimates for real-time audience projections
   const [localDrawEstimates, setLocalDrawEstimates] = useState<Record<string, number>>({})
@@ -574,49 +575,12 @@ export default function BandInquiryDashboard() {
     }
   }
 
-  // Helper functions for real-time cost effectiveness analysis
+  // Helper functions for real-time financial analysis (separate from ranking)
   const updateLocalCostEstimate = (bandId: string, cost: number) => {
     setLocalCostEstimates(prev => ({
       ...prev,
       [bandId]: cost
     }))
-    
-    const effectiveDraw = getEffectiveDraw(bands.find(b => b.id === bandId)!)
-    
-    setBands(prevBands => {
-      const updatedBands = prevBands.map(band => {
-        if (band.id === bandId) {
-          const newCostEffectivenessScore = calculateCostEffectivenessWithDraw(cost, effectiveDraw)
-          
-          const updatedBand = {
-            ...band,
-            costEffectivenessScore: newCostEffectivenessScore
-          }
-          
-          const weights = rankingWeights[rankingFocus]
-          if (weights) {
-            updatedBand.overallScore = Math.round(
-              updatedBand.growthMomentumScore * weights.growthMomentum +
-              updatedBand.fanEngagementScore * weights.fanEngagement +
-              updatedBand.digitalPopularityScore * weights.digitalPopularity +
-              updatedBand.livePotentialScore * weights.livePotential +
-              updatedBand.venueFitScore * weights.venueFit +
-              updatedBand.geographicFitScore * weights.geographicFit +
-              updatedBand.costEffectivenessScore * weights.costEffectiveness
-            )
-          }
-          
-          return updatedBand
-        }
-        return band
-      })
-      
-      if (sortBy === 'score') {
-        return updatedBands.sort((a, b) => b.overallScore - a.overallScore)
-      }
-      
-      return updatedBands
-    })
   }
 
   const updateLocalDrawEstimate = (bandId: string, draw: number) => {
@@ -624,43 +588,6 @@ export default function BandInquiryDashboard() {
       ...prev,
       [bandId]: draw
     }))
-    
-    const effectiveCost = getEffectiveCost(bands.find(b => b.id === bandId)!)
-    
-    setBands(prevBands => {
-      const updatedBands = prevBands.map(band => {
-        if (band.id === bandId) {
-          const newCostEffectivenessScore = calculateCostEffectivenessWithDraw(effectiveCost, draw)
-          
-          const updatedBand = {
-            ...band,
-            costEffectivenessScore: newCostEffectivenessScore
-          }
-          
-          const weights = rankingWeights[rankingFocus]
-          if (weights) {
-            updatedBand.overallScore = Math.round(
-              updatedBand.growthMomentumScore * weights.growthMomentum +
-              updatedBand.fanEngagementScore * weights.fanEngagement +
-              updatedBand.digitalPopularityScore * weights.digitalPopularity +
-              updatedBand.livePotentialScore * weights.livePotential +
-              updatedBand.venueFitScore * weights.venueFit +
-              updatedBand.geographicFitScore * weights.geographicFit +
-              updatedBand.costEffectivenessScore * weights.costEffectiveness
-            )
-          }
-          
-          return updatedBand
-        }
-        return band
-      })
-      
-      if (sortBy === 'score') {
-        return updatedBands.sort((a, b) => b.overallScore - a.overallScore)
-      }
-      
-      return updatedBands
-    })
   }
 
   const getEffectiveCost = (band: Band): number => {
@@ -668,7 +595,7 @@ export default function BandInquiryDashboard() {
   }
 
   const hasManualInput = (band: Band): boolean => {
-    return localCostEstimates[band.id] !== undefined && localCostEstimates[band.id] > 0
+    return localCostEstimates[band.id] !== undefined && localCostEstimates[band.id] >= 0
   }
 
   const getEffectiveDraw = (band: Band): number => {
@@ -796,7 +723,7 @@ export default function BandInquiryDashboard() {
           hasPlayed: safeExtractValue(record['Has Played?'] || record.hasPlayed, 'No') as 'Yes' | 'No'
         }
         
-        console.log(`✅ Transformed band: ${band.name} (Score components: G:${band.growthMomentumScore}, F:${band.fanEngagementScore}, D:${band.digitalPopularityScore}, L:${band.livePotentialScore}, V:${band.venueFitScore}, Geo:${band.geographicFitScore}, Cost:${band.costEffectivenessScore})`)
+        console.log(`✅ Transformed band: ${band.name} (Score components: G:${band.growthMomentumScore}, F:${band.fanEngagementScore}, D:${band.digitalPopularityScore}, L:${band.livePotentialScore}, V:${band.venueFitScore}, Geo:${band.geographicFitScore})`)
         
         return band
       })
@@ -1273,7 +1200,7 @@ export default function BandInquiryDashboard() {
                   
                   {/* Cost Effectiveness Analysis Section */}
                   <div className="mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="text-sm font-medium text-blue-900 mb-3">💰 Cost Effectiveness Analysis</h4>
+                    <h4 className="text-sm font-medium text-blue-900 mb-3">💰 Financial Analysis Tool</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4 items-end">
                       {/* Cost Input */}
                       <div>
@@ -1285,8 +1212,8 @@ export default function BandInquiryDashboard() {
                           onChange={(e) => updateLocalCostEstimate(band.id, Number(e.target.value))}
                           className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
-                        {/* AI Cost Estimate Display */}
-                        {band.aiCostEstimate && (
+                        {/* AI Cost Estimate Display - FIXED: Show even when 0 */}
+                        {band.aiCostEstimate !== undefined && (
                           <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-center">
                             <div className="text-xs text-purple-700 font-medium">🤖 AI Suggested Quote</div>
                             <div className="text-sm font-semibold text-purple-900">
@@ -1298,8 +1225,7 @@ export default function BandInquiryDashboard() {
                           </div>
                         )}
                       </div>
-              
-                      {/* Draw Input */}
+              {/* Draw Input */}
                       <div>
                         <label className="block text-xs font-medium text-blue-700 mb-1">Expected Attendance</label>
                         <input
@@ -1342,7 +1268,7 @@ export default function BandInquiryDashboard() {
                                 </>
                               )}
                               <div className="text-xs text-gray-500">
-                                {hasManualInput(band) ? 'Manual quote' : band.aiCostEstimate ? 'AI quote' : 'No cost'} • {hasManualDrawInput(band) ? 'Manual draw' : 'Original draw'}
+                                {hasManualInput(band) ? 'Manual quote' : band.aiCostEstimate !== undefined ? 'AI quote' : 'No cost'} • {hasManualDrawInput(band) ? 'Manual draw' : 'Original draw'}
                               </div>
                             </div>
                           )
@@ -1372,10 +1298,10 @@ export default function BandInquiryDashboard() {
                     </div>
                   </div>
               
-                  {/* Score Breakdown */}
+                  {/* Score Breakdown - NOW 6 COMPONENTS */}
                   <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Score Breakdown</h4>
-                    <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 sm:gap-3">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Score Breakdown (6 Components)</h4>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
                       <div className="text-center">
                         <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.growthMomentumScore}</div>
                         <div className="text-xs text-gray-500">Growth</div>
@@ -1400,10 +1326,9 @@ export default function BandInquiryDashboard() {
                         <div className="text-lg sm:text-xl font-semibold text-blue-600">{band.geographicFitScore}</div>
                         <div className="text-xs text-blue-500 font-medium">Geographic</div>
                       </div>
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-green-600">{band.costEffectivenessScore}</div>
-                        <div className="text-xs text-green-500 font-medium">Cost Value</div>
-                      </div>
+                    </div>
+                    <div className="mt-3 text-center text-xs text-gray-600">
+                      Cost effectiveness is not included in ranking • Used only for financial analysis
                     </div>
                   </div>
               
