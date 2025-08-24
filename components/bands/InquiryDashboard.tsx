@@ -1,8 +1,9 @@
+// components/bands/InquiryDashboard.tsx - Updated without financial analysis
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { MagnifyingGlassIcon, FunnelIcon, SpeakerWaveIcon, ArrowPathIcon, AdjustmentsHorizontalIcon, ChevronDownIcon, ChevronUpIcon, ArrowLeftIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, FunnelIcon, SpeakerWaveIcon, ArrowPathIcon, AdjustmentsHorizontalIcon, ChevronDownIcon, ChevronUpIcon, ArrowLeftIcon, XMarkIcon, CalculatorIcon } from '@heroicons/react/24/outline'
 import { CheckCircleIcon, XCircleIcon, ClockIcon, StarIcon } from '@heroicons/react/24/solid'
 
 interface Band {
@@ -35,6 +36,7 @@ interface Band {
   lastUpdated: string
   dateAnalyzed: string
   confidenceLevel: 'High' | 'Medium' | 'Low'
+  aiAnalysisNotes?: string
   // Performance tracking fields (for filtering out played bands)
   hasPlayed?: 'Yes' | 'No'
 }
@@ -476,10 +478,6 @@ export default function BandInquiryDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [showFilters, setShowFilters] = useState(false)
-  // Local cost estimates for real-time financial analysis
-  const [localCostEstimates, setLocalCostEstimates] = useState<Record<string, number>>({})
-  // Local draw estimates for real-time audience projections
-  const [localDrawEstimates, setLocalDrawEstimates] = useState<Record<string, number>>({})
   
   // Performance tracking states
   const [performanceModalOpen, setPerformanceModalOpen] = useState(false)
@@ -575,90 +573,6 @@ export default function BandInquiryDashboard() {
     }
   }
 
-  // Helper functions for real-time financial analysis (separate from ranking)
-  const updateLocalCostEstimate = (bandId: string, cost: number) => {
-    setLocalCostEstimates(prev => ({
-      ...prev,
-      [bandId]: cost
-    }))
-  }
-
-  const updateLocalDrawEstimate = (bandId: string, draw: number) => {
-    setLocalDrawEstimates(prev => ({
-      ...prev,
-      [bandId]: draw
-    }))
-  }
-
-  const getEffectiveCost = (band: Band): number => {
-    return localCostEstimates[band.id] || band.aiCostEstimate || 0
-  }
-
-  const hasManualInput = (band: Band): boolean => {
-    return localCostEstimates[band.id] !== undefined && localCostEstimates[band.id] >= 0
-  }
-
-  const getEffectiveDraw = (band: Band): number => {
-    return localDrawEstimates[band.id] || parseInt(band.estimatedDraw.match(/(\d+)/)?.[1] || '0') || 0
-  }
-
-  const hasManualDrawInput = (band: Band): boolean => {
-    return localDrawEstimates[band.id] !== undefined && localDrawEstimates[band.id] > 0
-  }
-
-  const calculateCostEffectivenessWithDraw = (cost: number, draw: number): number => {
-    if (!draw || draw <= 0) return 0
-    if (!cost || cost <= 0) {
-      // Free shows get capacity utilization score only
-      const capacityUtilization = Math.min((draw / 450) * 100, 100)
-      return Math.round(capacityUtilization * 0.6) // Only 60% of total possible score for free shows
-    }
-    
-    const IDEAL_CAPACITY = 450
-    const TARGET_COST_PER_PERSON_MIN = 5
-    const TARGET_COST_PER_PERSON_MAX = 15
-    
-    // Capacity Utilization Score (0-100, capped at 100)
-    const capacityUtilization = Math.min((draw / IDEAL_CAPACITY) * 100, 100)
-    
-    // Cost Efficiency Score (0-100)
-    const costPerPerson = cost / draw
-    let costEfficiency = 0
-    
-    if (costPerPerson <= TARGET_COST_PER_PERSON_MIN) {
-      // Very cheap - excellent cost efficiency
-      costEfficiency = 100
-    } else if (costPerPerson <= TARGET_COST_PER_PERSON_MAX) {
-      // Within target range - scale from 100 to 60
-      const range = TARGET_COST_PER_PERSON_MAX - TARGET_COST_PER_PERSON_MIN
-      const position = costPerPerson - TARGET_COST_PER_PERSON_MIN
-      costEfficiency = 100 - (position / range) * 40 // 100 down to 60
-    } else {
-      // Above target range - scale down further
-      const excessCost = costPerPerson - TARGET_COST_PER_PERSON_MAX
-      costEfficiency = Math.max(60 - (excessCost * 2), 0) // Penalty for expensive shows
-    }
-    
-    // Combined score: 60% capacity utilization, 40% cost efficiency
-    const finalScore = (capacityUtilization * 0.6) + (costEfficiency * 0.4)
-    
-    return Math.round(finalScore)
-  }
-
-  const calculateRevenuePerCustomer = (cost: number, draw: number): number => {
-    if (!draw || draw <= 0) return 0
-    return cost / draw
-  }
-
-  const getCostEffectivenessLabel = (score: number): { label: string; color: string } => {
-    if (score >= 85) return { label: 'Excellent Value', color: 'bg-green-100 text-green-800 border-green-300' }
-    if (score >= 70) return { label: 'Good Value', color: 'bg-blue-100 text-blue-800 border-blue-300' }
-    if (score >= 55) return { label: 'Fair Value', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' }
-    if (score >= 35) return { label: 'Poor Value', color: 'bg-orange-100 text-orange-800 border-orange-300' }
-    if (score > 0) return { label: 'Very Poor Value', color: 'bg-red-100 text-red-800 border-red-300' }
-    return { label: 'Enter Details', color: 'bg-gray-100 text-gray-600 border-gray-300' }
-  }
-
   // Improved helper function to safely extract values from complex Airtable objects
   const safeExtractValue = (field: any, fallback: any = null) => {
     if (field === null || field === undefined) return fallback
@@ -720,6 +634,7 @@ export default function BandInquiryDashboard() {
           lastUpdated: safeExtractValue(record['Last Updated'] || record.lastUpdated, new Date().toISOString()),
           dateAnalyzed: safeExtractValue(record['Date Analyzed'] || record.dateAnalyzed, new Date().toISOString()),
           confidenceLevel: safeExtractValue(record['Draw Confidence Level'] || record.confidenceLevel, 'Medium') as 'High' | 'Medium' | 'Low',
+          aiAnalysisNotes: safeExtractValue(record['AI Analysis Notes'] || record.aiAnalysisNotes, 'No analysis notes available'),
           hasPlayed: safeExtractValue(record['Has Played?'] || record.hasPlayed, 'No') as 'Yes' | 'No'
         }
         
@@ -956,7 +871,7 @@ export default function BandInquiryDashboard() {
       {/* Header */}
       <div className="bg-white shadow-lg border-b-4 border-orange-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
             <div className="flex items-center space-x-3 sm:space-x-4">
               <button
                 onClick={() => router.push('/dashboard')}
@@ -990,6 +905,13 @@ export default function BandInquiryDashboard() {
                     : isRefreshing 
                       ? 'Refreshing...' 
                       : 'Refresh Data'}
+                </button>
+                <button
+                  onClick={() => router.push('/financial')}
+                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base touch-manipulation"
+                >
+                  <CalculatorIcon className="h-4 w-4 sm:h-5 sm:w-5 mr-1" />
+                  Financial Analysis
                 </button>
                 <button
                   onClick={() => router.push('/bands/history')}
@@ -1136,6 +1058,11 @@ export default function BandInquiryDashboard() {
                           {band.recommendation}
                         </span>
                         <span className="text-xs sm:text-sm text-gray-500">{band.bookingStatus}</span>
+                        {band.aiCostEstimate !== undefined && (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 border border-purple-200 w-fit">
+                            AI Quote: ${band.aiCostEstimate.toLocaleString()}
+                          </span>
+                        )}
                       </div>
                       
                       {/* Band Status Dropdown */}
@@ -1173,8 +1100,8 @@ export default function BandInquiryDashboard() {
                     <div className="text-xs text-gray-500">YouTube Subscribers</div>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
-                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.averageViewsPerVideo.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">Avg Views/Video</div>
+                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.estimatedDraw}</div>
+                    <div className="text-xs text-gray-500">Est. Draw</div>
                   </div>
                 </div>
 
@@ -1194,111 +1121,11 @@ export default function BandInquiryDashboard() {
                 </button>
               </div>
 
-              {/* Expanded Details */}
+              {/* Expanded Details - SIMPLIFIED WITHOUT FINANCIAL ANALYSIS */}
               {expandedCards.has(band.id) && (
                 <div className="border-t border-gray-200 bg-gray-50 p-4 sm:p-6">
                   
-                  {/* Cost Effectiveness Analysis Section */}
-                  <div className="mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="text-sm font-medium text-blue-900 mb-3">💰 Financial Analysis Tool</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4 items-end">
-                      {/* Cost Input */}
-                      <div>
-                        <label className="block text-xs font-medium text-blue-700 mb-1">Quote from Artist ($)</label>
-                        <input
-                          type="number"
-                          placeholder="Enter quote..."
-                          value={localCostEstimates[band.id] || ''}
-                          onChange={(e) => updateLocalCostEstimate(band.id, Number(e.target.value))}
-                          className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        {/* AI Cost Estimate Display - FIXED: Show even when 0 */}
-                        {band.aiCostEstimate !== undefined && (
-                          <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-center">
-                            <div className="text-xs text-purple-700 font-medium">🤖 AI Suggested Quote</div>
-                            <div className="text-sm font-semibold text-purple-900">
-                              ${band.aiCostEstimate.toLocaleString()}
-                              {hasManualInput(band) && (
-                                <span className="text-xs text-purple-600 block">(overridden)</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-              {/* Draw Input */}
-                      <div>
-                        <label className="block text-xs font-medium text-blue-700 mb-1">Expected Attendance</label>
-                        <input
-                          type="number"
-                          placeholder="Enter estimate..."
-                          value={localDrawEstimates[band.id] || ''}
-                          onChange={(e) => updateLocalDrawEstimate(band.id, Number(e.target.value))}
-                          className="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        {/* Original Draw Estimate Display */}
-                        <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-center">
-                          <div className="text-xs text-green-700 font-medium">📊 Original Estimate</div>
-                          <div className="text-sm font-semibold text-green-900">
-                            {band.estimatedDraw}
-                            {hasManualDrawInput(band) && (
-                              <span className="text-xs text-green-600 block">(overridden)</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-              
-                      {/* Calculations */}
-                      <div className="text-center">
-                        <div className="text-xs text-blue-700 mb-1">Financial Breakdown</div>
-                        {(() => {
-                          const effectiveCost = getEffectiveCost(band)
-                          const effectiveDraw = getEffectiveDraw(band)
-                          const revenuePerCustomer = calculateRevenuePerCustomer(effectiveCost, effectiveDraw)
-                          
-                          return (
-                            <div className="space-y-1">
-                              {effectiveCost > 0 && effectiveDraw > 0 && (
-                                <>
-                                  <div className="text-xs text-blue-600">
-                                    Cost per attendee: ${Math.round(revenuePerCustomer)}
-                                  </div>
-                                  <div className="text-xs text-blue-600">
-                                    Revenue needed per person: ${Math.round(revenuePerCustomer)}
-                                  </div>
-                                </>
-                              )}
-                              <div className="text-xs text-gray-500">
-                                {hasManualInput(band) ? 'Manual quote' : band.aiCostEstimate !== undefined ? 'AI quote' : 'No cost'} • {hasManualDrawInput(band) ? 'Manual draw' : 'Original draw'}
-                              </div>
-                            </div>
-                          )
-                        })()}
-                      </div>
-              
-                      {/* Value Rating */}
-                      <div className="text-center">
-                        {(() => {
-                          const effectiveCost = getEffectiveCost(band)
-                          const effectiveDraw = getEffectiveDraw(band)
-                          const costScore = calculateCostEffectivenessWithDraw(effectiveCost, effectiveDraw)
-                          const { label, color } = getCostEffectivenessLabel(costScore)
-                          return (
-                            <div>
-                              <div className="text-xs text-blue-700 mb-1">Value Rating</div>
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full border ${color}`}>
-                                {label}
-                              </span>
-                              {effectiveCost > 0 && effectiveDraw > 0 && (
-                                <div className="text-xs text-blue-600 mt-1">Score: {costScore}/100</div>
-                              )}
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    </div>
-                  </div>
-              
-                  {/* Score Breakdown - NOW 6 COMPONENTS */}
+                  {/* Score Breakdown - 6 COMPONENTS */}
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">Score Breakdown (6 Components)</h4>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
@@ -1327,11 +1154,14 @@ export default function BandInquiryDashboard() {
                         <div className="text-xs text-blue-500 font-medium">Geographic</div>
                       </div>
                     </div>
-                    <div className="mt-3 text-center text-xs text-gray-600">
-                      Cost effectiveness is not included in ranking • Used only for financial analysis
+                    <div className="mt-3 text-center">
+                      <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full border border-green-200">
+                        <CalculatorIcon className="h-4 w-4 mr-1" />
+                        <span>Use Financial Analysis tool for cost calculations</span>
+                      </div>
                     </div>
                   </div>
-              
+
                   {/* Additional YouTube Stats */}
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-700 mb-3">YouTube Analytics</h4>
@@ -1345,8 +1175,8 @@ export default function BandInquiryDashboard() {
                         <div className="text-xs text-gray-500">Video Count</div>
                       </div>
                       <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.estimatedDraw}</div>
-                        <div className="text-xs text-gray-500">Est. Draw</div>
+                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.averageViewsPerVideo.toLocaleString()}</div>
+                        <div className="text-xs text-gray-500">Avg Views/Video</div>
                       </div>
                       <div className="bg-white rounded-lg p-3 text-center">
                         <div className="text-sm sm:text-lg font-semibold text-gray-900">
@@ -1356,7 +1186,7 @@ export default function BandInquiryDashboard() {
                       </div>
                     </div>
                   </div>
-              
+
                   {/* Key Strengths & Concerns */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
                     <div>
@@ -1376,7 +1206,17 @@ export default function BandInquiryDashboard() {
                       </div>
                     </div>
                   </div>
-              
+
+                  {/* AI Analysis Notes */}
+                  {band.aiAnalysisNotes && (
+                    <div className="mb-6">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">AI Analysis Notes</h4>
+                      <div className="bg-white border border-gray-200 rounded-lg p-3">
+                        <p className="text-sm text-gray-600">{band.aiAnalysisNotes}</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Actions & Status */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-200 space-y-3 sm:space-y-0">
                     <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
@@ -1391,6 +1231,13 @@ export default function BandInquiryDashboard() {
                           Listen on Spotify
                         </a>
                       )}
+                      <button
+                        onClick={() => router.push('/financial')}
+                        className="inline-flex items-center justify-center px-3 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors touch-manipulation"
+                      >
+                        <CalculatorIcon className="h-4 w-4 mr-1" />
+                        Analyze Costs
+                      </button>
                       <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 space-y-1 sm:space-y-0 sm:space-x-2">
                         <span>Confidence: {band.confidenceLevel}</span>
                         <span className="hidden sm:inline">•</span>
