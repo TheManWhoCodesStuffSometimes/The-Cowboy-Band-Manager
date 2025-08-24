@@ -1,8 +1,8 @@
-// app/dashboard/page.tsx - New Management Overview Page
+// app/dashboard/page.tsx - Updated Management Overview Page
 'use client'
 
 import Link from 'next/link'
-import { SpeakerWaveIcon, MicrophoneIcon, LightBulbIcon } from '@heroicons/react/24/outline'
+import { SpeakerWaveIcon, MicrophoneIcon, LightBulbIcon, CalculatorIcon } from '@heroicons/react/24/outline'
 
 export default function DashboardPage() {
   // Handle logout
@@ -55,7 +55,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Management Tools Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 max-w-6xl mx-auto">
           
           {/* Band Management Card */}
           <Link href="/bands" className="group">
@@ -65,14 +65,36 @@ export default function DashboardPage() {
                   <SpeakerWaveIcon className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg sm:text-xl font-bold text-orange-900 mb-2">Band Booking</h3>
+                  <h3 className="text-lg sm:text-xl font-bold text-orange-900 mb-2">Band Discovery</h3>
                   <p className="text-sm sm:text-base text-orange-700 leading-relaxed">
                     AI-powered band analytics, booking management, and smart recommendations for your venue.
                   </p>
                 </div>
                 <div className="mt-auto pt-4">
                   <div className="bg-orange-600 text-white px-4 py-2 rounded-lg font-semibold group-hover:bg-orange-700 transition-colors">
-                    Manage Bands →
+                    Discover Bands →
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          {/* Financial Analysis Card */}
+          <Link href="/financial" className="group">
+            <div className="bg-gradient-to-br from-green-100 to-green-200 p-6 sm:p-8 rounded-xl sm:rounded-2xl border-2 border-green-300 hover:border-green-500 transition-all duration-300 group-hover:shadow-xl group-hover:scale-105 h-full">
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="bg-green-500 p-4 sm:p-5 rounded-xl group-hover:bg-green-600 transition-colors">
+                  <CalculatorIcon className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-bold text-green-900 mb-2">Financial Analysis</h3>
+                  <p className="text-sm sm:text-base text-green-700 leading-relaxed">
+                    Break-even analysis, profitability calculations, and booking cost optimization tools.
+                  </p>
+                </div>
+                <div className="mt-auto pt-4">
+                  <div className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold group-hover:bg-green-700 transition-colors">
+                    Analyze Costs →
                   </div>
                 </div>
               </div>
@@ -102,7 +124,7 @@ export default function DashboardPage() {
           </Link>
 
           {/* Lights Management Card */}
-          <Link href="/lights" className="group md:col-span-2 lg:col-span-1">
+          <Link href="/lights" className="group">
             <div className="bg-gradient-to-br from-blue-100 to-blue-200 p-6 sm:p-8 rounded-xl sm:rounded-2xl border-2 border-blue-300 hover:border-blue-500 transition-all duration-300 group-hover:shadow-xl group-hover:scale-105 h-full">
               <div className="flex flex-col items-center text-center space-y-4">
                 <div className="bg-blue-500 p-4 sm:p-5 rounded-xl group-hover:bg-blue-600 transition-colors">
@@ -129,7 +151,7 @@ export default function DashboardPage() {
         <div className="mt-12 sm:mt-16 bg-white rounded-xl sm:rounded-2xl shadow-lg p-6 sm:p-8 max-w-4xl mx-auto">
           <div className="text-center">
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">System Status</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-6">
               <div className="flex flex-col items-center p-4 bg-green-50 rounded-lg">
                 <div className="text-2xl sm:text-3xl font-bold text-green-600">✓</div>
                 <div className="text-sm sm:text-base text-green-800 font-medium">All Systems Online</div>
@@ -141,6 +163,10 @@ export default function DashboardPage() {
               <div className="flex flex-col items-center p-4 bg-purple-50 rounded-lg">
                 <div className="text-2xl sm:text-3xl font-bold text-purple-600">🤖</div>
                 <div className="text-sm sm:text-base text-purple-800 font-medium">AI Analytics Ready</div>
+              </div>
+              <div className="flex flex-col items-center p-4 bg-green-50 rounded-lg">
+                <div className="text-2xl sm:text-3xl font-bold text-green-600">💰</div>
+                <div className="text-sm sm:text-base text-green-800 font-medium">Financial Tools</div>
               </div>
             </div>
           </div>
