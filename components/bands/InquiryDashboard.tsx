@@ -1,4 +1,4 @@
-// components/bands/InquiryDashboard.tsx - Updated without financial analysis
+// components/bands/InquiryDashboard.tsx - Updated without financial analysis and AI cost estimate
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -1058,11 +1058,6 @@ export default function BandInquiryDashboard() {
                           {band.recommendation}
                         </span>
                         <span className="text-xs sm:text-sm text-gray-500">{band.bookingStatus}</span>
-                        {band.aiCostEstimate !== undefined && (
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 border border-purple-200 w-fit">
-                            AI Quote: ${band.aiCostEstimate.toLocaleString()}
-                          </span>
-                        )}
                       </div>
                       
                       {/* Band Status Dropdown */}
