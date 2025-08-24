@@ -1,877 +1,329 @@
-// components/bands/InquiryDashboard.tsx - Updated without financial analysis and AI cost estimate
+// components/financial/FinancialDashboard.tsx - Comprehensive Financial Analysis Tool
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { MagnifyingGlassIcon, FunnelIcon, SpeakerWaveIcon, ArrowPathIcon, AdjustmentsHorizontalIcon, ChevronDownIcon, ChevronUpIcon, ArrowLeftIcon, XMarkIcon, CalculatorIcon } from '@heroicons/react/24/outline'
-import { CheckCircleIcon, XCircleIcon, ClockIcon, StarIcon } from '@heroicons/react/24/solid'
+import { 
+  CalculatorIcon, 
+  ArrowLeftIcon, 
+  CurrencyDollarIcon,
+  ChartBarIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  InformationCircleIcon
+} from '@heroicons/react/24/outline'
 
-interface Band {
-  id: string
-  name: string
-  overallScore: number
-  // Enhanced ranking metrics (0-100) - NOW 6 COMPONENTS (removed cost effectiveness)
-  growthMomentumScore: number
-  fanEngagementScore: number
-  digitalPopularityScore: number
-  livePotentialScore: number
-  venueFitScore: number
-  geographicFitScore: number
-  // Keep cost effectiveness score for display purposes but don't use in ranking
-  costEffectivenessScore: number
-  recommendation: 'BOOK SOON' | 'STRONG CONSIDER' | 'MAYBE' | 'PASS'
-  spotifyFollowers: number
-  spotifyPopularity: number
-  spotifyUrl?: string
-  youtubeSubscribers: number
-  youtubeViews: number
-  youtubeVideoCount: number
-  averageViewsPerVideo: number
-  youtubeHasVevo: boolean
-  estimatedDraw: string
-  aiCostEstimate?: number
-  keyStrengths: string
-  mainConcerns: string
-  bookingStatus: 'Not Contacted' | 'Contacted' | 'Negotiating' | 'Booked' | 'Passed'
-  lastUpdated: string
-  dateAnalyzed: string
-  confidenceLevel: 'High' | 'Medium' | 'Low'
-  aiAnalysisNotes?: string
-  // Performance tracking fields (for filtering out played bands)
-  hasPlayed?: 'Yes' | 'No'
+interface FinancialInputs {
+  bandOffer: number
+  estimatedAttendance: number
+  ticketPrice: number
+  barRevenue: number
+  merchandiseRevenue: number
+  coverCharge: number
+  // Revenue splits
+  ticketSplitToCowboy: number // percentage
+  merchSplitToCowboy: number // percentage
+  // COGS inputs
+  barCOGS: number // percentage
+  merchandiseCOGS: number // percentage
+  // Fixed costs
+  staffCosts: number
+  utilitiesCosts: number
+  facilityCosts: number
+  marketingCosts: number
+  otherFixedCosts: number
 }
 
-interface RankingFocus {
-  value: string
-  label: string
-  description: string
-  icon: string
-}
-
-interface PerformanceData {
-  overallVibe: number
-  attendance: number
-  bandBookingCost: number
-  wouldBookAgain: 'Yes' | 'No' | 'Maybe'
-  openingHeadliner: 'Opening' | 'Headliner'
-}
-
-interface RemovalData {
-  reasons: string[]
-}
-
-const rankingFocusOptions: RankingFocus[] = [
-  { 
-    value: 'hidden_gems', 
-    label: 'Hidden Gems', 
-    description: 'Emerging artists before they blow up',
-    icon: '💎'
-  },
-  { 
-    value: 'genre_fit', 
-    label: 'Best Genre Fit', 
-    description: 'Country/Western artists that match our vibe',
-    icon: '🤠'
-  },
-  { 
-    value: 'proven_draw', 
-    label: 'Proven Draw', 
-    description: 'Established acts with ticket-selling history',
-    icon: '🎯'
-  },
-  { 
-    value: 'local_buzz', 
-    label: 'Local Buzz', 
-    description: 'Regional artists with Wyoming connections',
-    icon: '🏔️'
-  },
-  {
-    value: 'rising_stars',
-    label: 'Rising Stars',
-    description: 'Artists showing explosive growth',
-    icon: '🚀'
+interface FinancialResults {
+  // Combined totals
+  totalRevenue: number
+  totalCOGS: number
+  totalFixedCosts: number
+  grossProfit: number
+  netProfit: number
+  breakEvenAttendance: number
+  profitMargin: number
+  riskLevel: 'Low' | 'Medium' | 'High'
+  recommendation: string
+  revenuePerCustomer: number
+  costPerCustomer: number
+  profitPerCustomer: number
+  
+  // Cowboy-specific results
+  cowboy: {
+    revenue: number
+    cogs: number
+    fixedCosts: number
+    grossProfit: number
+    netProfit: number
+    profitMargin: number
   }
-]
-
-interface RankingWeights {
-  growthMomentum: number
-  fanEngagement: number
-  digitalPopularity: number
-  livePotential: number
-  venueFit: number
-  geographicFit: number
-  // Removed costEffectiveness from weights
-}
-
-// Updated weighting matrices for 6-component scoring system (removed cost effectiveness)
-const rankingWeights: Record<string, RankingWeights> = {
-  hidden_gems: {
-    growthMomentum: 0.30,    // Increased from 0.25
-    fanEngagement: 0.30,     // Increased from 0.25
-    digitalPopularity: 0.15,
-    livePotential: 0.15,
-    venueFit: 0.20,
-    geographicFit: 0.10
-    // Removed costEffectiveness: 0.10
-  },
-  genre_fit: {
-    growthMomentum: 0.10,    // Increased from 0.08
-    fanEngagement: 0.25,     // Increased from 0.22
-    digitalPopularity: 0.05,
-    livePotential: 0.20,     // Increased from 0.18
-    venueFit: 0.40,          // Increased from 0.35
-    geographicFit: 0.10      // Decreased from 0.12
-    // Removed costEffectiveness: 0.10
-  },
-  proven_draw: {
-    growthMomentum: 0.05,
-    fanEngagement: 0.25,     // Increased from 0.20
-    digitalPopularity: 0.25, // Increased from 0.20
-    livePotential: 0.30,     // Increased from 0.25
-    venueFit: 0.15,
-    geographicFit: 0.15      // Increased from 0.10
-    // Removed costEffectiveness: 0.15
-  },
-  local_buzz: {
-    growthMomentum: 0.25,    // Increased from 0.20
-    fanEngagement: 0.30,     // Increased from 0.25
-    digitalPopularity: 0.05,
-    livePotential: 0.10,
-    venueFit: 0.30,          // Increased from 0.25
-    geographicFit: 0.20      // Increased from 0.15
-    // Removed costEffectiveness: 0.10
-  },
-  rising_stars: {
-    growthMomentum: 0.40,    // Increased from 0.35
-    fanEngagement: 0.20,     // Increased from 0.15
-    digitalPopularity: 0.25, // Increased from 0.20
-    livePotential: 0.10,
-    venueFit: 0.05,
-    geographicFit: 0.05      // Decreased from 0.05
-    // Removed costEffectiveness: 0.10
+  
+  // Band-specific results
+  band: {
+    revenue: number
+    costs: number
+    netProfit: number
+    profitMargin: number
   }
 }
 
-const applyWeightsToBands = (bands: Band[], focus: string): Band[] => {
-  const weights = rankingWeights[focus]
-  if (!weights) return bands
-
-  return bands.map((band) => ({
-    ...band,
-    overallScore: Math.round(
-      band.growthMomentumScore * weights.growthMomentum +
-      band.fanEngagementScore * weights.fanEngagement +
-      band.digitalPopularityScore * weights.digitalPopularity +
-      band.livePotentialScore * weights.livePotential +
-      band.venueFitScore * weights.venueFit +
-      band.geographicFitScore * weights.geographicFit
-      // Removed cost effectiveness from calculation
-    )
-  }))
-}
-
-// Performance Form Modal Component
-const PerformanceFormModal: React.FC<{
-  isOpen: boolean
-  onClose: () => void
-  bandName: string
-  bandId: string
-  onSubmit: (data: PerformanceData) => void
-}> = ({ isOpen, onClose, bandName, bandId, onSubmit }) => {
-  const [formData, setFormData] = useState<PerformanceData>({
-    overallVibe: 3,
-    attendance: 0,
-    bandBookingCost: 0,
-    wouldBookAgain: 'Maybe',
-    openingHeadliner: 'Opening'
+export default function FinancialDashboard() {
+  const router = useRouter()
+  
+  const [inputs, setInputs] = useState<FinancialInputs>({
+    bandOffer: 0,
+    estimatedAttendance: 0,
+    ticketPrice: 15,
+    barRevenue: 25, // per person average
+    merchandiseRevenue: 0, // default to 0 since venue typically doesn't get this
+    coverCharge: 10,
+    ticketSplitToCowboy: 0, // default to 0% - bands typically keep ticket sales
+    merchSplitToCowboy: 0, // default to 0% - bands typically keep merchandise
+    barCOGS: 30, // 30% of bar revenue
+    merchandiseCOGS: 40, // 40% of merchandise revenue
+    staffCosts: 800,
+    utilitiesCosts: 200,
+    facilityCosts: 300,
+    marketingCosts: 150,
+    otherFixedCosts: 100
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSubmit(formData)
-    onClose()
-  }
+  const [savedScenarios, setSavedScenarios] = useState<Array<{
+    name: string
+    inputs: FinancialInputs
+    results: FinancialResults
+    timestamp: Date
+  }>>([])
 
-  if (!isOpen) return null
+  // Calculate financial results
+  const results = useMemo((): FinancialResults => {
+    const { 
+      bandOffer, 
+      estimatedAttendance, 
+      ticketPrice, 
+      barRevenue, 
+      merchandiseRevenue, 
+      coverCharge,
+      ticketSplitToCowboy,
+      merchSplitToCowboy,
+      barCOGS,
+      merchandiseCOGS,
+      staffCosts,
+      utilitiesCosts,
+      facilityCosts,
+      marketingCosts,
+      otherFixedCosts
+    } = inputs
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-gray-900">Mark Band as Played</h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-1"
-            >
-              <XMarkIcon className="h-6 w-6" />
-            </button>
-          </div>
+    // Revenue calculations
+    const ticketRevenue = estimatedAttendance * ticketPrice
+    const coverChargeRevenue = estimatedAttendance * coverCharge
+    const totalBarRevenue = estimatedAttendance * barRevenue
+    const totalMerchandiseRevenue = estimatedAttendance * merchandiseRevenue
 
-          {/* Band Name */}
-          <div className="mb-6 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-            <p className="text-sm text-orange-700 font-medium">Recording performance for:</p>
-            <p className="text-lg font-bold text-orange-900">{bandName}</p>
-          </div>
+    // Cowboy revenue
+    const cowboyTicketRevenue = ticketRevenue * (ticketSplitToCowboy / 100)
+    const cowboyMerchRevenue = totalMerchandiseRevenue * (merchSplitToCowboy / 100)
+    const cowboyRevenue = cowboyTicketRevenue + coverChargeRevenue + totalBarRevenue + cowboyMerchRevenue
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {/* Overall Vibe */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Overall Vibe (1-5 stars)
-              </label>
-              <div className="flex space-x-2">
-                {[1, 2, 3, 4, 5].map((rating) => (
-                  <button
-                    key={rating}
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, overallVibe: rating }))}
-                    className={`p-2 rounded-lg transition-colors ${
-                      formData.overallVibe >= rating
-                        ? 'text-yellow-500'
-                        : 'text-gray-300 hover:text-yellow-400'
-                    }`}
-                  >
-                    <StarIcon className="h-6 w-6" />
-                  </button>
-                ))}
-                <span className="ml-2 text-sm text-gray-600 self-center">
-                  {formData.overallVibe}/5
-                </span>
-              </div>
-            </div>
+    // Band revenue
+    const bandTicketRevenue = ticketRevenue * ((100 - ticketSplitToCowboy) / 100)
+    const bandMerchRevenue = totalMerchandiseRevenue * ((100 - merchSplitToCowboy) / 100)
+    const bandRevenue = bandTicketRevenue + bandMerchRevenue
 
-            {/* Attendance */}
-            <div>
-              <label htmlFor="attendance" className="block text-sm font-medium text-gray-700 mb-1">
-                Attendance (number of people)
-              </label>
-              <input
-                type="number"
-                id="attendance"
-                value={formData.attendance || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, attendance: Number(e.target.value) }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="Enter attendance count"
-                required
-              />
-            </div>
+    const totalRevenue = cowboyRevenue + bandRevenue
 
-            {/* Band Booking Cost */}
-            <div>
-              <label htmlFor="cost" className="block text-sm font-medium text-gray-700 mb-1">
-                Band Booking Cost ($)
-              </label>
-              <input
-                type="number"
-                id="cost"
-                value={formData.bandBookingCost || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, bandBookingCost: Number(e.target.value) }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="Enter booking cost"
-                required
-              />
-            </div>
+    // COGS calculations (only applies to Cowboy)
+    const barCOGSAmount = totalBarRevenue * (barCOGS / 100)
+    const merchandiseCOGSAmount = cowboyMerchRevenue * (merchandiseCOGS / 100)
+    const totalCOGS = barCOGSAmount + merchandiseCOGSAmount
 
-            {/* Would Book Again */}
-            <div>
-              <label htmlFor="bookAgain" className="block text-sm font-medium text-gray-700 mb-1">
-                Would Book Again?
-              </label>
-              <select
-                id="bookAgain"
-                value={formData.wouldBookAgain}
-                onChange={(e) => setFormData(prev => ({ ...prev, wouldBookAgain: e.target.value as 'Yes' | 'No' | 'Maybe' }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              >
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-                <option value="Maybe">Maybe</option>
-              </select>
-            </div>
+    // Fixed costs (Cowboy pays these)
+    const totalFixedCosts = bandOffer + staffCosts + utilitiesCosts + facilityCosts + marketingCosts + otherFixedCosts
 
-            {/* Opening/Headliner */}
-            <div>
-              <label htmlFor="slot" className="block text-sm font-medium text-gray-700 mb-1">
-                Opening or Headliner?
-              </label>
-              <select
-                id="slot"
-                value={formData.openingHeadliner}
-                onChange={(e) => setFormData(prev => ({ ...prev, openingHeadliner: e.target.value as 'Opening' | 'Headliner' }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              >
-                <option value="Opening">Opening</option>
-                <option value="Headliner">Headliner</option>
-              </select>
-            </div>
+    // Cowboy calculations
+    const cowboyGrossProfit = cowboyRevenue - totalCOGS
+    const cowboyNetProfit = cowboyGrossProfit - totalFixedCosts
+    const cowboyProfitMargin = cowboyRevenue > 0 ? (cowboyNetProfit / cowboyRevenue) * 100 : 0
 
-            {/* Submit Buttons */}
-            <div className="flex space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-              >
-                Submit Performance
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  )
-}
+    // Band calculations (they get revenue minus what they pay the cowboy, which is bandOffer)
+    const bandNetProfit = bandRevenue - bandOffer
+    const bandProfitMargin = bandRevenue > 0 ? (bandNetProfit / bandRevenue) * 100 : 0
 
-// Band Removal Modal Component
-const BandRemovalModal: React.FC<{
-  isOpen: boolean
-  onClose: () => void
-  bandName: string
-  bandId: string
-  onSubmit: (data: RemovalData) => void
-}> = ({ isOpen, onClose, bandName, bandId, onSubmit }) => {
-  const [selectedReasons, setSelectedReasons] = useState<string[]>([])
+    // Combined calculations for overall analysis
+    const grossProfit = totalRevenue - totalCOGS
+    const netProfit = cowboyNetProfit + bandNetProfit
 
-  const removalReasons = [
-    'Not enough digital presence',
-    'Not correct genre fit',
-    'Band was unprofessional',
-    'Too expensive for potential draw',
-    'Geographic fit concerns',
-    'Scheduling conflicts',
-    'Changed business direction',
-    'Other venue requirements'
-  ]
+    // Per customer metrics
+    const revenuePerCustomer = estimatedAttendance > 0 ? totalRevenue / estimatedAttendance : 0
+    const costPerCustomer = estimatedAttendance > 0 ? (totalCOGS + totalFixedCosts) / estimatedAttendance : 0
+    const profitPerCustomer = estimatedAttendance > 0 ? netProfit / estimatedAttendance : 0
 
-  const toggleReason = (reason: string) => {
-    setSelectedReasons(prev => 
-      prev.includes(reason) 
-        ? prev.filter(r => r !== reason)
-        : [...prev, reason]
-    )
-  }
+    // Break-even analysis (based on Cowboy's perspective)
+    const variableRevenuePerPerson = (ticketPrice * ticketSplitToCowboy / 100) + coverCharge + barRevenue + (merchandiseRevenue * merchSplitToCowboy / 100)
+    const variableCOGSPerPerson = (barRevenue * barCOGS / 100) + (merchandiseRevenue * merchSplitToCowboy / 100 * merchandiseCOGS / 100)
+    const contributionMarginPerPerson = variableRevenuePerPerson - variableCOGSPerPerson
+    const breakEvenAttendance = contributionMarginPerPerson > 0 ? Math.ceil(totalFixedCosts / contributionMarginPerPerson) : 0
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (selectedReasons.length === 0) {
-      alert('Please select at least one reason for removal.')
-      return
-    }
-    onSubmit({ reasons: selectedReasons })
-    onClose()
-    setSelectedReasons([])
-  }
+    // Profit margin (overall)
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
 
-  if (!isOpen) return null
+    // Risk assessment (based on Cowboy's break-even)
+    let riskLevel: 'Low' | 'Medium' | 'High' = 'Low'
+    if (breakEvenAttendance > estimatedAttendance * 1.2) riskLevel = 'High'
+    else if (breakEvenAttendance > estimatedAttendance * 0.8) riskLevel = 'Medium'
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-gray-900">Remove Band from List</h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-1"
-            >
-              <XMarkIcon className="h-6 w-6" />
-            </button>
-          </div>
+    // Recommendation
+    let recommendation = 'Excellent opportunity for both parties!'
+    if (cowboyNetProfit < 0 && bandNetProfit < 0) recommendation = 'Not recommended - both parties will lose money'
+    else if (cowboyNetProfit < 0) recommendation = 'Unfavorable for venue - consider renegotiating terms'
+    else if (bandNetProfit < 0) recommendation = 'Unfavorable for band - they may not accept'
+    else if (cowboyProfitMargin < 10) recommendation = 'Marginal for venue - consider reducing costs'
+    else if (cowboyProfitMargin >= 30 && bandProfitMargin >= 30) recommendation = 'Outstanding - very profitable for both parties!'
 
-          {/* Band Name */}
-          <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-700 font-medium">Removing from inquiry list:</p>
-            <p className="text-lg font-bold text-red-900">{bandName}</p>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {/* Removal Reasons */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Why are you removing this band? (Select all that apply)
-              </label>
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {removalReasons.map((reason) => (
-                  <label
-                    key={reason}
-                    className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedReasons.includes(reason)}
-                      onChange={() => toggleReason(reason)}
-                      className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
-                    />
-                    <span className="text-sm text-gray-700">{reason}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Selected Reasons Summary */}
-            {selectedReasons.length > 0 && (
-              <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                <p className="text-xs text-gray-600 mb-2">Selected reasons ({selectedReasons.length}):</p>
-                <div className="flex flex-wrap gap-1">
-                  {selectedReasons.map((reason) => (
-                    <span
-                      key={reason}
-                      className="inline-block px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full"
-                    >
-                      {reason}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Submit Buttons */}
-            <div className="flex space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-              >
-                Remove Band
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export default function BandInquiryDashboard() {
-  const router = useRouter()
-  const [refreshCountdown, setRefreshCountdown] = useState<number>(0)
-  const [refreshTimer, setRefreshTimer] = useState<NodeJS.Timeout | null>(null)
-  const [bands, setBands] = useState<Band[]>([])
-  const [filteredBands, setFilteredBands] = useState<Band[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedRecommendation, setSelectedRecommendation] = useState<string>('all')
-  const [selectedStatus, setSelectedStatus] = useState<string>('all')
-  const [rankingFocus, setRankingFocus] = useState<string>('hidden_gems')
-  const [sortBy, setSortBy] = useState<'score' | 'name' | 'followers'>('score')
-  const [isLoading, setIsLoading] = useState(true)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
-  const [showFilters, setShowFilters] = useState(false)
-  
-  // Performance tracking states
-  const [performanceModalOpen, setPerformanceModalOpen] = useState(false)
-  const [selectedBandForPerformance, setSelectedBandForPerformance] = useState<{ id: string, name: string } | null>(null)
-  
-  // Band removal states
-  const [removalModalOpen, setRemovalModalOpen] = useState(false)
-  const [selectedBandForRemoval, setSelectedBandForRemoval] = useState<{ id: string, name: string } | null>(null)
-
-  // API URLs
-  const RETRIEVE_DATA_API = '/api/bands'
-  const REFRESH_DATA_API = '/api/bands/refresh'
-  const BAND_ACTION_WEBHOOK_URL = 'https://thayneautomations.app.n8n.cloud/webhook/edit-band-status'
-
-  // Handle performance form submission
-  const handlePerformanceSubmit = async (performanceData: PerformanceData) => {
-    if (!selectedBandForPerformance) return
-
-    try {
-      const payload = {
-        bandId: selectedBandForPerformance.id,
-        bandName: selectedBandForPerformance.name,
-        bandAction: 'Yes',
-        ...performanceData,
-        datePerformed: new Date().toISOString(),
-        venue: 'The Cowboy Saloon'
-      }
-
-      const response = await fetch(BAND_ACTION_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      })
-
-      if (response.ok) {
-        // Remove the band from the inquiry list since it's now played
-        setBands(prev => prev.filter(band => band.id !== selectedBandForPerformance.id))
-        console.log('Performance data submitted successfully')
-      } else {
-        throw new Error('Failed to submit performance data')
-      }
-    } catch (error) {
-      console.error('Error submitting performance data:', error)
-      setError('Failed to submit performance data')
-    }
-  }
-
-  // Handle band removal submission
-  const handleRemovalSubmit = async (removalData: RemovalData) => {
-    if (!selectedBandForRemoval) return
-
-    try {
-      const payload = {
-        bandId: selectedBandForRemoval.id,
-        bandName: selectedBandForRemoval.name,
-        bandAction: 'Band Removed',
-        removalReasons: removalData.reasons,
-        dateRemoved: new Date().toISOString(),
-        venue: 'The Cowboy Saloon'
-      }
-
-      const response = await fetch(BAND_ACTION_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      })
-
-      if (response.ok) {
-        // Remove the band from the inquiry list since it's been rejected
-        setBands(prev => prev.filter(band => band.id !== selectedBandForRemoval.id))
-        console.log('Band removal data submitted successfully')
-      } else {
-        throw new Error('Failed to submit band removal data')
-      }
-    } catch (error) {
-      console.error('Error submitting band removal data:', error)
-      setError('Failed to submit band removal data')
-    }
-  }
-
-  // Handle band status change
-  const handleBandStatusChange = (bandId: string, bandName: string, status: string) => {
-    if (status === 'Band Played') {
-      setSelectedBandForPerformance({ id: bandId, name: bandName })
-      setPerformanceModalOpen(true)
-    } else if (status === 'Remove Band From List') {
-      setSelectedBandForRemoval({ id: bandId, name: bandName })
-      setRemovalModalOpen(true)
-    }
-  }
-
-  // Improved helper function to safely extract values from complex Airtable objects
-  const safeExtractValue = (field: any, fallback: any = null) => {
-    if (field === null || field === undefined) return fallback
-    
-    if (typeof field === 'object' && field.state === 'error') {
-      console.warn('Airtable field error:', field)
-      return fallback
-    }
-    
-    if (typeof field === 'object' && field.value !== undefined) {
-      return field.value || fallback
-    }
-    
-    if (Array.isArray(field)) {
-      return field.length > 0 ? field[0] : fallback
-    }
-    
-    return field
-  }
-
-  // Transform Airtable data to our Band interface with enhanced error handling
-  const transformAirtableData = (airtableRecords: any[]): Band[] => {
-    console.log('🔄 Transforming', airtableRecords.length, 'records')
-    
-    const transformedBands = airtableRecords
-      .filter(record => {
-        // FILTER OUT PLAYED BANDS - this is key for the inquiry page
-        const hasPlayed = safeExtractValue(record['Has Played?'] || record.hasPlayed, 'No')
-        return hasPlayed !== 'Yes'
-      })
-      .map((record: any, index: number) => {
-        console.log(`🔄 Processing record ${index + 1}:`, record['Band Name'] || record.bandName || 'Unknown')
-        
-        const band = {
-          id: record.id || record.recordId || Math.random().toString(36),
-          name: safeExtractValue(record['Band Name'] || record.bandName, 'Unknown'),
-          overallScore: 0, // Will be calculated by weights
-          growthMomentumScore: Number(safeExtractValue(record['Growth Momentum Score'] || record.growthMomentumScore, 0)) || 0,
-          fanEngagementScore: Number(safeExtractValue(record['Fan Engagement Score'] || record.fanEngagementScore, 0)) || 0,
-          digitalPopularityScore: Number(safeExtractValue(record['Digital Popularity Score'] || record['Digital Popularity'] || record.digitalPopularityScore, 0)) || 0,
-          livePotentialScore: Number(safeExtractValue(record['Live Potential Score'] || record.livePotentialScore, 0)) || 0,
-          venueFitScore: Number(safeExtractValue(record['Venue Fit Score'] || record.venueFitScore, 0)) || 0,
-          geographicFitScore: Number(safeExtractValue(record['Geographic Fit Score'] || record.geographicFitScore, 0)) || 0,
-          costEffectivenessScore: Number(safeExtractValue(record['Cost Effectiveness Score'] || record.costEffectivenessScore, 0)) || 0,
-          recommendation: safeExtractValue(record['Recommendation Level'] || record.recommendation, 'MAYBE') as 'BOOK SOON' | 'STRONG CONSIDER' | 'MAYBE' | 'PASS',
-          spotifyFollowers: Number(safeExtractValue(record['Spotify Followers'] || record.spotifyFollowers, 0)) || 0,
-          spotifyPopularity: Number(safeExtractValue(record['Spotify Popularity Score'] || record.spotifyPopularity, 0)) || 0,
-          spotifyUrl: safeExtractValue(record['Spotify Profile URL'] || record.spotifyUrl, ''),
-          youtubeSubscribers: Number(safeExtractValue(record['Youtube Subscribers'] || record.youtubeSubscribers, 0)) || 0,
-          youtubeViews: Number(safeExtractValue(record['Youtube Views'] || record.youtubeViews, 0)) || 0,
-          youtubeVideoCount: Number(safeExtractValue(record['Youtube Video Count'] || record.youtubeVideoCount, 0)) || 0,
-          averageViewsPerVideo: Number(safeExtractValue(record['Average Views Per Video'] || record.averageViewsPerVideo, 0)) || 0,
-          youtubeHasVevo: safeExtractValue(record['Youtube has VEVO'], 'false') === 'true' || safeExtractValue(record['Youtube has VEVO'], false) === true,
-          aiCostEstimate: Number(safeExtractValue(record['AI Cost Estimate'] || record.aiCostEstimate, 0)) || undefined,
-          estimatedDraw: safeExtractValue(record['Estimated Audience Draw'] || record.estimatedDraw, 'Unknown'),
-          keyStrengths: safeExtractValue(record['Key Strengths'] || record.keyStrengths, 'No strengths identified yet'),
-          mainConcerns: safeExtractValue(record['Main Concerns'] || record.mainConcerns, 'No concerns identified yet'),
-          bookingStatus: safeExtractValue(record['Booking Status'] || record.bookingStatus, 'Not Contacted') as Band['bookingStatus'],
-          lastUpdated: safeExtractValue(record['Last Updated'] || record.lastUpdated, new Date().toISOString()),
-          dateAnalyzed: safeExtractValue(record['Date Analyzed'] || record.dateAnalyzed, new Date().toISOString()),
-          confidenceLevel: safeExtractValue(record['Draw Confidence Level'] || record.confidenceLevel, 'Medium') as 'High' | 'Medium' | 'Low',
-          aiAnalysisNotes: safeExtractValue(record['AI Analysis Notes'] || record.aiAnalysisNotes, 'No analysis notes available'),
-          hasPlayed: safeExtractValue(record['Has Played?'] || record.hasPlayed, 'No') as 'Yes' | 'No'
-        }
-        
-        console.log(`✅ Transformed band: ${band.name} (Score components: G:${band.growthMomentumScore}, F:${band.fanEngagementScore}, D:${band.digitalPopularityScore}, L:${band.livePotentialScore}, V:${band.venueFitScore}, Geo:${band.geographicFitScore})`)
-        
-        return band
-      })
-    
-    console.log('🎯 Total transformed bands for inquiry:', transformedBands.length)
-    return transformedBands
-  }
-
-  // Fetch band data from our API
-  const fetchBandData = async () => {
-    const requestId = Math.random().toString(36).substring(7)
-    console.log(`🎯 [${requestId}] Starting fetchBandData`)
-    
-    try {
-      setError(null)
-      console.log(`📡 [${requestId}] Fetching from:`, RETRIEVE_DATA_API)
-      
-      const response = await fetch(RETRIEVE_DATA_API, {
-        method: 'GET',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      })
-
-      console.log(`📨 [${requestId}] Response status:`, response.status)
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-      console.log(`📦 [${requestId}] Raw response type:`, typeof data)
-      
-      // Handle different possible response structures
-      let records = []
-      if (Array.isArray(data)) {
-        records = data
-        console.log(`✅ [${requestId}] Data is direct array`)
-      } else if (data.records && Array.isArray(data.records)) {
-        records = data.records
-        console.log(`✅ [${requestId}] Data has records property`)
-      } else if (data.data && Array.isArray(data.data)) {
-        records = data.data
-        console.log(`✅ [${requestId}] Data has data property`)
-      } else {
-        console.warn(`⚠️ [${requestId}] Unexpected data structure:`, data)
-        console.log(`🔍 [${requestId}] Available keys:`, Object.keys(data))
-        records = []
-      }
-
-      console.log(`📊 [${requestId}] Records found:`, records.length)
-      console.log(`📊 [${requestId}] First record sample:`, records[0])
-
-      const transformedBands = transformAirtableData(records)
-      console.log(`🔄 [${requestId}] Transformed bands:`, transformedBands.length)
-      console.log(`🔄 [${requestId}] First transformed band:`, transformedBands[0])
-
-      // Apply current ranking focus weights
-      const weightedBands = applyWeightsToBands(transformedBands, rankingFocus)
-      setBands(weightedBands)
-
-      // Set last refresh time to the most recent analysis date
-      if (weightedBands.length > 0) {
-        const mostRecent = weightedBands.reduce((latest, band) => {
-          const bandDate = new Date(band.dateAnalyzed)
-          const latestDate = new Date(latest)
-          return bandDate > latestDate ? band.dateAnalyzed : latest
-        }, weightedBands[0].dateAnalyzed)
-        setLastRefresh(new Date(mostRecent))
-        console.log(`⏰ [${requestId}] Last refresh set to:`, mostRecent)
-      }
-
-    } catch (error) {
-      console.error(`💥 [${requestId}] Error in fetchBandData:`, error)
-      console.error(`💥 [${requestId}] Error stack:`, (error as Error).stack)
-      setError(`Failed to load band data: ${(error as Error).message}`)
-    } finally {
-      setIsLoading(false)
-      console.log(`✅ [${requestId}] fetchBandData completed`)
-    }
-  }
-
-  // Refresh band data
-  const refreshBandData = async () => {
-    try {
-      setIsRefreshing(true)
-      setError(null)
-      
-      // Send the webhook but don't wait for it to complete
-      fetch(REFRESH_DATA_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          lastRefresh: lastRefresh?.toISOString()
-        })
-      }).catch(error => {
-        console.error('Webhook error (non-critical):', error)
-      })
-  
-      // Start 4-minute countdown timer (240 seconds)
-      setRefreshCountdown(240)
-      
-      const timer = setInterval(() => {
-        setRefreshCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(timer)
-            setRefreshTimer(null)
-            setIsRefreshing(false)
-            fetchBandData()
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-      
-      setRefreshTimer(timer)
-  
-    } catch (error) {
-      console.error('Error starting refresh:', error)
-      setError('Failed to start refresh process')
-      setIsRefreshing(false)
-    }
-  }
-  
-  // Cleanup function to clear timer if component unmounts
-  useEffect(() => {
-    return () => {
-      if (refreshTimer) {
-        clearInterval(refreshTimer)
+    return {
+      totalRevenue,
+      totalCOGS,
+      totalFixedCosts,
+      grossProfit,
+      netProfit,
+      breakEvenAttendance,
+      profitMargin,
+      riskLevel,
+      recommendation,
+      revenuePerCustomer,
+      costPerCustomer,
+      profitPerCustomer,
+      cowboy: {
+        revenue: cowboyRevenue,
+        cogs: totalCOGS,
+        fixedCosts: totalFixedCosts,
+        grossProfit: cowboyGrossProfit,
+        netProfit: cowboyNetProfit,
+        profitMargin: cowboyProfitMargin
+      },
+      band: {
+        revenue: bandRevenue,
+        costs: bandOffer,
+        netProfit: bandNetProfit,
+        profitMargin: bandProfitMargin
       }
     }
-  }, [refreshTimer])
-  
-  // Helper function to format countdown time
-  const formatCountdown = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+  }, [inputs])
+
+  const updateInput = (field: keyof FinancialInputs, value: number) => {
+    setInputs(prev => ({
+      ...prev,
+      [field]: value
+    }))
   }
 
-  // Load data on component mount
-  useEffect(() => {
-    console.log('🎯 Component mounted, calling fetchBandData')
-    fetchBandData()
-  }, [])
-
-  // Recalculate overall scores when ranking focus changes
-  useEffect(() => {
-    setBands(prev => applyWeightsToBands(prev, rankingFocus))
-  }, [rankingFocus])
-
-  // Filter and sort bands
-  useEffect(() => {
-    let filtered = bands.filter(band => {
-      const matchesSearch = band.name.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesRecommendation = selectedRecommendation === 'all' || band.recommendation === selectedRecommendation
-      const matchesStatus = selectedStatus === 'all' || band.bookingStatus === selectedStatus
-      
-      return matchesSearch && matchesRecommendation && matchesStatus
-    })
-
-    // Sort bands
-    filtered.sort((a, b) => {
-      if (sortBy === 'score') return b.overallScore - a.overallScore
-      if (sortBy === 'name') return a.name.localeCompare(b.name)
-      if (sortBy === 'followers') return b.spotifyFollowers - a.spotifyFollowers
-      return 0
-    })
-
-    setFilteredBands(filtered)
-  }, [bands, searchTerm, selectedRecommendation, selectedStatus, sortBy])
-
-  // Toggle card expansion
-  const toggleCardExpansion = (bandId: string) => {
-    setExpandedCards(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(bandId)) {
-        newSet.delete(bandId)
-      } else {
-        newSet.add(bandId)
+  const saveScenario = () => {
+    const name = prompt('Enter a name for this scenario:')
+    if (name && name.trim()) {
+      const newScenario = {
+        name: name.trim(),
+        inputs: { ...inputs },
+        results: { ...results },
+        timestamp: new Date()
       }
-      return newSet
+      setSavedScenarios(prev => [...prev, newScenario])
+    }
+  }
+
+  const loadScenario = (scenario: typeof savedScenarios[0]) => {
+    setInputs(scenario.inputs)
+  }
+
+  const clearInputs = () => {
+    setInputs({
+      bandOffer: 0,
+      estimatedAttendance: 0,
+      ticketPrice: 15,
+      barRevenue: 25,
+      merchandiseRevenue: 0, // default to 0
+      coverCharge: 10,
+      ticketSplitToCowboy: 0, // default to 0%
+      merchSplitToCowboy: 0, // default to 0%
+      barCOGS: 30,
+      merchandiseCOGS: 40,
+      staffCosts: 800,
+      utilitiesCosts: 200,
+      facilityCosts: 300,
+      marketingCosts: 150,
+      otherFixedCosts: 100
     })
   }
 
-  // Update booking status
-  const updateBookingStatus = (bandId: string, newStatus: Band['bookingStatus']) => {
-    setBands(prev => prev.map(band => 
-      band.id === bandId ? { ...band, bookingStatus: newStatus } : band
-    ))
+  // Calculate drink estimates for bar revenue
+  const calculateDrinkEstimate = (barRevenue: number) => {
+    if (barRevenue <= 0) return ''
+    
+    // Assume average drink cost after COGS
+    const avgDrinkPrice = 6 // Average drink price
+    const avgDrinkCost = avgDrinkPrice * (inputs.barCOGS / 100) // Cost of drink
+    const avgDrinkProfit = avgDrinkPrice - avgDrinkCost // Profit per drink
+    
+    const drinksNeeded = Math.ceil(barRevenue / avgDrinkPrice)
+    const drinksRange = `${Math.max(1, Math.ceil(barRevenue / 8))}-${Math.ceil(barRevenue / 4)}`
+    
+    return `≈ ${drinksNeeded} drinks ($${avgDrinkPrice} avg) or ${drinksRange} drinks ($4-8 range)`
   }
 
-  const getRecommendationColor = (rec: string) => {
-    switch (rec) {
-      case 'BOOK SOON': return 'bg-green-100 text-green-800 border-green-200'
-      case 'STRONG CONSIDER': return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'MAYBE': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      case 'PASS': return 'bg-red-100 text-red-800 border-red-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-  }
+  // Download financial report
+  const downloadReport = () => {
+    const reportContent = `
+FINANCIAL ANALYSIS REPORT
+The Cowboy Music Venue
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Booked': return <CheckCircleIcon className="h-5 w-5 text-green-500" />
-      case 'Passed': return <XCircleIcon className="h-5 w-5 text-red-500" />
-      case 'Negotiating': return <ClockIcon className="h-5 w-5 text-yellow-500" />
-      default: return null
-    }
-  }
+Generated: ${new Date().toLocaleDateString()}
+Show Details: ${inputs.estimatedAttendance} expected attendance
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 sm:h-32 sm:w-32 border-b-2 border-orange-500 mx-auto"></div>
-          <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mt-4">Loading Band Data...</h2>
-          <p className="text-sm sm:text-base text-gray-600 mt-2">Fetching the latest artist analytics</p>
-        </div>
-      </div>
-    )
+=== COWBOY FINANCIAL SUMMARY ===
+Revenue: $${results.cowboy.revenue.toLocaleString()}
+COGS: $${results.cowboy.cogs.toLocaleString()}
+Fixed Costs: $${results.cowboy.fixedCosts.toLocaleString()}
+NET PROFIT: $${results.cowboy.netProfit.toLocaleString()}
+Profit Margin: ${results.cowboy.profitMargin.toFixed(1)}%
+
+=== BAND FINANCIAL SUMMARY ===
+Revenue: $${results.band.revenue.toLocaleString()}
+Costs (Payment to Venue): $${results.band.costs.toLocaleString()}
+NET PROFIT: $${results.band.netProfit.toLocaleString()}
+Profit Margin: ${results.band.profitMargin.toFixed(1)}%
+
+=== BREAK-EVEN ANALYSIS ===
+Break-even Attendance: ${results.breakEvenAttendance}
+Risk Level: ${results.riskLevel}
+Recommendation: ${results.recommendation}
+
+=== REVENUE BREAKDOWN ===
+Ticket Price: $${inputs.ticketPrice} (Cowboy gets ${inputs.ticketSplitToCowboy}%)
+Cover Charge: $${inputs.coverCharge} (100% to Cowboy)
+Bar Revenue per Person: $${inputs.barRevenue} (100% to Cowboy)
+Merchandise per Person: $${inputs.merchandiseRevenue} (Cowboy gets ${inputs.merchSplitToCowboy}%)
+
+Generated by The Cowboy Venue Management System
+    `
+
+    const blob = new Blob([reportContent], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `cowboy-financial-analysis-${new Date().toISOString().split('T')[0]}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
       {/* Header */}
-      <div className="bg-white shadow-lg border-b-4 border-orange-500">
+      <div className="bg-white shadow-lg border-b-4 border-green-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
             <div className="flex items-center space-x-3 sm:space-x-4">
               <button
                 onClick={() => router.push('/dashboard')}
@@ -879,454 +331,760 @@ export default function BandInquiryDashboard() {
               >
                 <ArrowLeftIcon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </button>
-              <div className="bg-orange-500 p-2 sm:p-3 rounded-lg">
-                <SpeakerWaveIcon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+              <div className="bg-green-500 p-2 sm:p-3 rounded-lg">
+                <CalculatorIcon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Band Discovery</h1>
-                <p className="text-xs sm:text-sm lg:text-base text-gray-600">Smart booking decisions for The Cowboy Saloon</p>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Financial Analysis</h1>
+                <p className="text-xs sm:text-sm lg:text-base text-gray-600">Break-even analysis and profitability calculator</p>
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-              {lastRefresh && (
-                <div className="text-xs sm:text-sm text-gray-500">
-                  Last updated: {lastRefresh.toLocaleDateString()}
-                </div>
-              )}
-              <div className="flex space-x-2 w-full sm:w-auto">
-                <button
-                  onClick={refreshBandData}
-                  disabled={isRefreshing}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center px-3 sm:px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base touch-manipulation"
-                >
-                  <ArrowPathIcon className={`h-4 w-4 sm:h-5 sm:w-5 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  {isRefreshing && refreshCountdown > 0 
-                    ? `Refreshing... ${formatCountdown(refreshCountdown)}` 
-                    : isRefreshing 
-                      ? 'Refreshing...' 
-                      : 'Refresh Data'}
-                </button>
-                <button
-                  onClick={() => router.push('/financial')}
-                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base touch-manipulation"
-                >
-                  <CalculatorIcon className="h-4 w-4 sm:h-5 sm:w-5 mr-1" />
-                  Financial Analysis
-                </button>
-                <button
-                  onClick={() => router.push('/bands/history')}
-                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base touch-manipulation"
-                >
-                  View History
-                </button>
-                <button
-                  onClick={() => router.push('/bands/rejected')}
-                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm sm:text-base touch-manipulation"
-                >
-                  Rejected Bands
-                </button>
-              </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={downloadReport}
+                className="px-3 sm:px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm sm:text-base touch-manipulation"
+              >
+                Download Report
+              </button>
+              <button
+                onClick={saveScenario}
+                className="px-3 sm:px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm sm:text-base touch-manipulation"
+              >
+                Save Scenario
+              </button>
+              <button
+                onClick={clearInputs}
+                className="px-3 sm:px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm sm:text-base touch-manipulation"
+              >
+                Clear All
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            <strong className="font-bold">Error: </strong>
-            <span className="block sm:inline">{error}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Controls */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        
+        {/* Financial Comparison Summary */}
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 flex items-center">
+            <ChartBarIcon className="h-5 w-5 sm:h-6 sm:w-6 mr-2 text-green-600" />
+            Financial Comparison
+          </h2>
           
-          {/* Mobile Filter Toggle */}
-          <div className="block sm:hidden mb-4">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-orange-50 border border-orange-200 rounded-lg text-orange-700 font-medium"
-            >
-              <span className="flex items-center">
-                <FunnelIcon className="h-5 w-5 mr-2" />
-                Filters & Search
-              </span>
-              <ChevronDownIcon className={`h-5 w-5 transform transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-            </button>
-          </div>
-
-          {/* Filters Container */}
-          <div className={`${showFilters ? 'block' : 'hidden'} sm:block`}>
-            {/* Ranking Focus Selector */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                <AdjustmentsHorizontalIcon className="inline h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                Ranking Focus
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
-                {rankingFocusOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setRankingFocus(option.value)}
-                    className={`p-3 sm:p-4 rounded-lg border-2 text-left transition-all touch-manipulation ${
-                      rankingFocus === option.value
-                        ? 'border-orange-500 bg-orange-50 text-orange-900'
-                        : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                    }`}
-                  >
-                    <div className="text-lg sm:text-2xl mb-1 sm:mb-2">{option.icon}</div>
-                    <div className="font-semibold text-xs sm:text-sm">{option.label}</div>
-                    <div className="text-xs text-gray-500 mt-1 hidden sm:block">{option.description}</div>
-                  </button>
-                ))}
+          {/* Cowboy vs Band Comparison */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            
+            {/* Cowboy Results */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4">
+              <h3 className="text-lg font-bold text-green-800 mb-3 text-center">The Cowboy</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center p-3 bg-white rounded-lg">
+                  <div className="text-lg font-bold text-green-600">
+                    ${results.cowboy.revenue.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-600">Revenue</div>
+                </div>
+                <div className={`text-center p-3 rounded-lg ${results.cowboy.netProfit >= 0 ? 'bg-white' : 'bg-red-50'}`}>
+                  <div className={`text-lg font-bold ${results.cowboy.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${results.cowboy.netProfit.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-600">Net Profit</div>
+                </div>
+                <div className="text-center p-3 bg-white rounded-lg col-span-2">
+                  <div className="text-lg font-bold text-blue-600">
+                    {results.cowboy.profitMargin.toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-gray-600">Profit Margin</div>
+                </div>
               </div>
             </div>
 
-            {/* Search and Filters */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {/* Search */}
-              <div className="relative sm:col-span-2 lg:col-span-1">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search bands..."
-                  className="w-full pl-8 sm:pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            {/* Band Results */}
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-4">
+              <h3 className="text-lg font-bold text-purple-800 mb-3 text-center">The Band</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center p-3 bg-white rounded-lg">
+                  <div className="text-lg font-bold text-purple-600">
+                    ${results.band.revenue.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-600">Revenue</div>
+                </div>
+                <div className={`text-center p-3 rounded-lg ${results.band.netProfit >= 0 ? 'bg-white' : 'bg-red-50'}`}>
+                  <div className={`text-lg font-bold ${results.band.netProfit >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
+                    ${results.band.netProfit.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-600">Net Profit</div>
+                </div>
+                <div className="text-center p-3 bg-white rounded-lg col-span-2">
+                  <div className="text-lg font-bold text-blue-600">
+                    {results.band.profitMargin.toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-gray-600">Profit Margin</div>
+                </div>
               </div>
+            </div>
+            
+          </div>
 
-              {/* Recommendation Filter */}
-              <select
-                value={selectedRecommendation}
-                onChange={(e) => setSelectedRecommendation(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 sm:py-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
-              >
-                <option value="all">All Recommendations</option>
-                <option value="BOOK SOON">Book Soon</option>
-                <option value="STRONG CONSIDER">Strong Consider</option>
-                <option value="MAYBE">Maybe</option>
-                <option value="PASS">Pass</option>
-              </select>
-
-              {/* Status Filter */}
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 sm:py-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
-              >
-                <option value="all">All Statuses</option>
-                <option value="Not Contacted">Not Contacted</option>
-                <option value="Contacted">Contacted</option>
-                <option value="Negotiating">Negotiating</option>
-                <option value="Booked">Booked</option>
-                <option value="Passed">Passed</option>
-              </select>
-
-              {/* Sort */}
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'score' | 'name' | 'followers')}
-                className="border border-gray-300 rounded-lg px-3 py-2 sm:py-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
-              >
-                <option value="score">Sort by Score</option>
-                <option value="name">Sort by Name</option>
-                <option value="followers">Sort by Followers</option>
-              </select>
+          {/* Overall Analysis */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <div className="text-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="text-xl sm:text-2xl font-bold text-blue-600">
+                {results.breakEvenAttendance.toLocaleString()}
+              </div>
+              <div className="text-xs sm:text-sm text-gray-600">Break-even Attendance</div>
+            </div>
+            <div className="text-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="text-xl sm:text-2xl font-bold text-yellow-600">
+                {results.profitMargin.toFixed(1)}%
+              </div>
+              <div className="text-xs sm:text-sm text-gray-600">Combined Margin</div>
+            </div>
+            <div className={`text-center p-4 rounded-lg ${
+              results.riskLevel === 'Low' ? 'bg-green-50 border border-green-200' :
+              results.riskLevel === 'Medium' ? 'bg-yellow-50 border border-yellow-200' :
+              'bg-red-50 border border-red-200'
+            }`}>
+              <div className={`text-xl sm:text-2xl font-bold ${
+                results.riskLevel === 'Low' ? 'text-green-600' :
+                results.riskLevel === 'Medium' ? 'text-yellow-600' :
+                'text-red-600'
+              }`}>
+                {results.riskLevel}
+              </div>
+              <div className="text-xs sm:text-sm text-gray-600">Risk Level</div>
+            </div>
+            <div className="text-center p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="text-xl sm:text-2xl font-bold text-gray-600">
+                ${results.revenuePerCustomer.toFixed(0)}
+              </div>
+              <div className="text-xs sm:text-sm text-gray-600">Revenue/Customer</div>
+            </div>
+          </div>
+          
+          {/* Recommendation */}
+          <div className={`mt-4 p-4 rounded-lg flex items-center ${
+            results.cowboy.netProfit < 0 || results.band.netProfit < 0 ? 'bg-red-50 border border-red-200' :
+            results.cowboy.profitMargin < 10 ? 'bg-yellow-50 border border-yellow-200' :
+            'bg-green-50 border border-green-200'
+          }`}>
+            {results.cowboy.netProfit < 0 || results.band.netProfit < 0 ? 
+              <ExclamationTriangleIcon className="h-5 w-5 text-red-600 mr-3" /> :
+              results.cowboy.profitMargin < 10 ?
+              <InformationCircleIcon className="h-5 w-5 text-yellow-600 mr-3" /> :
+              <CheckCircleIcon className="h-5 w-5 text-green-600 mr-3" />
+            }
+            <div>
+              <div className="font-semibold text-gray-900">Recommendation</div>
+              <div className="text-sm text-gray-700">{results.recommendation}</div>
             </div>
           </div>
         </div>
 
-        {/* Results */}
-        <div className="grid gap-4 sm:gap-6">
-          {filteredBands.map((band) => (
-            <div key={band.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-              {/* Main Card Content */}
-              <div className="p-4 sm:p-6">
-                {/* Header Row */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between space-y-3 sm:space-y-0 mb-4">
-                  <div className="flex items-start space-x-3">
-                    {getStatusIcon(band.bookingStatus)}
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{band.name}</h3>
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 mt-1 space-y-1 sm:space-y-0">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full border w-fit ${getRecommendationColor(band.recommendation)}`}>
-                          {band.recommendation}
-                        </span>
-                        <span className="text-xs sm:text-sm text-gray-500">{band.bookingStatus}</span>
-                      </div>
-                      
-                      {/* Band Status Dropdown */}
-                      <div className="mt-2">
-                        <select
-                          onChange={(e) => handleBandStatusChange(band.id, band.name, e.target.value)}
-                          className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-transparent"
-                          defaultValue=""
-                        >
-                          <option value="" disabled>Change Band Status</option>
-                          <option value="Remove Band From List">Remove Band From List</option>
-                          <option value="Band Played">Band Played</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-center sm:text-right flex-shrink-0">
-                    <div className="text-2xl sm:text-3xl font-bold text-orange-600">{band.overallScore}</div>
-                    <div className="text-xs sm:text-sm text-gray-500">Overall Score</div>
-                  </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          {/* Input Section */}
+          <div className="space-y-6">
+            
+            {/* Basic Show Details */}
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <CurrencyDollarIcon className="h-5 w-5 mr-2 text-green-600" />
+                Show Details
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Band Offer ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={inputs.bandOffer || ''}
+                    onChange={(e) => updateInput('bandOffer', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="0"
+                  />
                 </div>
-
-                {/* Key Metrics Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4">
-                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
-                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.spotifyFollowers.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">Spotify Followers</div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
-                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.spotifyPopularity}/100</div>
-                    <div className="text-xs text-gray-500">Spotify Popularity</div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
-                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.youtubeSubscribers.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">YouTube Subscribers</div>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-2 sm:p-3 text-center">
-                    <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.estimatedDraw}</div>
-                    <div className="text-xs text-gray-500">Est. Draw</div>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Expected Attendance
+                  </label>
+                  <input
+                    type="number"
+                    value={inputs.estimatedAttendance || ''}
+                    onChange={(e) => updateInput('estimatedAttendance', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="0"
+                  />
                 </div>
-
-                {/* Expand/Collapse Button */}
-                <button
-                  onClick={() => toggleCardExpansion(band.id)}
-                  className="w-full flex items-center justify-center space-x-2 py-2 sm:py-3 text-sm text-gray-600 hover:text-gray-800 border-t border-gray-200 touch-manipulation"
-                >
-                  <span>
-                    {expandedCards.has(band.id) ? 'Hide Details' : 'Show Details'}
-                  </span>
-                  {expandedCards.has(band.id) ? (
-                    <ChevronUpIcon className="h-4 w-4" />
-                  ) : (
-                    <ChevronDownIcon className="h-4 w-4" />
-                  )}
-                </button>
               </div>
+            </div>
 
-              {/* Expanded Details - SIMPLIFIED WITHOUT FINANCIAL ANALYSIS */}
-              {expandedCards.has(band.id) && (
-                <div className="border-t border-gray-200 bg-gray-50 p-4 sm:p-6">
-                  
-                  {/* Score Breakdown - 6 COMPONENTS */}
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Score Breakdown (6 Components)</h4>
-                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.growthMomentumScore}</div>
-                        <div className="text-xs text-gray-500">Growth</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.fanEngagementScore}</div>
-                        <div className="text-xs text-gray-500">Engagement</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.digitalPopularityScore}</div>
-                        <div className="text-xs text-gray-500">Digital</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.livePotentialScore}</div>
-                        <div className="text-xs text-gray-500">Live</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-gray-900">{band.venueFitScore}</div>
-                        <div className="text-xs text-gray-500">Venue Fit</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg sm:text-xl font-semibold text-blue-600">{band.geographicFitScore}</div>
-                        <div className="text-xs text-blue-500 font-medium">Geographic</div>
-                      </div>
-                    </div>
-                    <div className="mt-3 text-center">
-                      <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full border border-green-200">
-                        <CalculatorIcon className="h-4 w-4 mr-1" />
-                        <span>Use Financial Analysis tool for cost calculations</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Additional YouTube Stats */}
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">YouTube Analytics</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                      <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.youtubeViews.toLocaleString()}</div>
-                        <div className="text-xs text-gray-500">Total Views</div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.youtubeVideoCount}</div>
-                        <div className="text-xs text-gray-500">Video Count</div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-sm sm:text-lg font-semibold text-gray-900">{band.averageViewsPerVideo.toLocaleString()}</div>
-                        <div className="text-xs text-gray-500">Avg Views/Video</div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 text-center">
-                        <div className="text-sm sm:text-lg font-semibold text-gray-900">
-                          {band.youtubeHasVevo ? '✓' : '✗'}
-                        </div>
-                        <div className="text-xs text-gray-500">VEVO Channel</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Key Strengths & Concerns */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Key Strengths</h4>
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                        <p className="text-sm text-green-800">
-                          {band.keyStrengths || 'No strengths identified yet'}
-                        </p>
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Main Concerns</h4>
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                        <p className="text-sm text-red-800">
-                          {band.mainConcerns || 'No concerns identified yet'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* AI Analysis Notes */}
-                  {band.aiAnalysisNotes && (
-                    <div className="mb-6">
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">AI Analysis Notes</h4>
-                      <div className="bg-white border border-gray-200 rounded-lg p-3">
-                        <p className="text-sm text-gray-600">{band.aiAnalysisNotes}</p>
-                      </div>
+            {/* Venue Revenue (Cowboy Gets 100%) */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center">
+                <CurrencyDollarIcon className="h-5 w-5 mr-2" />
+                Venue Revenue (100% to Cowboy)
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-green-700 mb-1">
+                    Cover Charge ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={inputs.coverCharge || ''}
+                    onChange={(e) => updateInput('coverCharge', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                  />
+                  <div className="text-xs text-green-600 mt-1">Door charge for entry</div>
+                </div>
+                <div className="relative">
+                  <label className="block text-sm font-medium text-green-700 mb-1">
+                    Avg Bar Revenue per Person ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={inputs.barRevenue || ''}
+                    onChange={(e) => updateInput('barRevenue', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                  />
+                  {inputs.barRevenue > 0 && (
+                    <div className="text-xs text-green-600 mt-1 bg-green-50 p-2 rounded">
+                      💡 {calculateDrinkEstimate(inputs.barRevenue)}
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
 
-                  {/* Actions & Status */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-gray-200 space-y-3 sm:space-y-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-                      {band.spotifyUrl && (
-                        <a
-                          href={band.spotifyUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center px-3 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors touch-manipulation"
-                        >
-                          <SpeakerWaveIcon className="h-4 w-4 mr-1" />
-                          Listen on Spotify
-                        </a>
-                      )}
-                      <button
-                        onClick={() => router.push('/financial')}
-                        className="inline-flex items-center justify-center px-3 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors touch-manipulation"
-                      >
-                        <CalculatorIcon className="h-4 w-4 mr-1" />
-                        Analyze Costs
-                      </button>
-                      <div className="flex flex-col sm:flex-row sm:items-center text-xs text-gray-500 space-y-1 sm:space-y-0 sm:space-x-2">
-                        <span>Confidence: {band.confidenceLevel}</span>
-                        <span className="hidden sm:inline">•</span>
-                        <span>Analyzed: {new Date(band.dateAnalyzed).toLocaleDateString()}</span>
+            {/* Shared Revenue (Negotiable Split) */}
+            <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-200 rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-yellow-800 mb-4 flex items-center">
+                <CurrencyDollarIcon className="h-5 w-5 mr-2" />
+                Shared Revenue (Negotiable Split)
+              </h3>
+              <div className="space-y-4">
+                
+                {/* Ticket Revenue */}
+                <div className="bg-white p-4 rounded-lg border border-yellow-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-yellow-700 mb-1">
+                        Ticket Price ($)
+                      </label>
+                      <input
+                        type="number"
+                        value={inputs.ticketPrice || ''}
+                        onChange={(e) => updateInput('ticketPrice', Number(e.target.value))}
+                        className="w-full px-3 py-2 border border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-yellow-700 mb-1">
+                        Cowboy's Share (%)
+                      </label>
+                      <input
+                        type="number"
+                        value={inputs.ticketSplitToCowboy || ''}
+                        onChange={(e) => updateInput('ticketSplitToCowboy', Math.max(0, Math.min(100, Number(e.target.value))))}
+                        className="w-full px-3 py-2 border border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                        min="0"
+                        max="100"
+                      />
+                      <div className="text-xs text-yellow-600 mt-1">
+                        Band gets {100 - inputs.ticketSplitToCowboy}%
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Merchandise Revenue */}
+                <div className="bg-white p-4 rounded-lg border border-yellow-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-yellow-700 mb-1">
+                        Avg Merchandise per Person ($)
+                      </label>
+                      <input
+                        type="number"
+                        value={inputs.merchandiseRevenue || ''}
+                        onChange={(e) => updateInput('merchandiseRevenue', Number(e.target.value))}
+                        className="w-full px-3 py-2 border border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      />
+                      <div className="text-xs text-yellow-600 mt-1">T-shirts, CDs, etc.</div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-yellow-700 mb-1">
+                        Cowboy's Share (%)
+                      </label>
+                      <input
+                        type="number"
+                        value={inputs.merchSplitToCowboy || ''}
+                        onChange={(e) => updateInput('merchSplitToCowboy', Math.max(0, Math.min(100, Number(e.target.value))))}
+                        className="w-full px-3 py-2 border border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                        min="0"
+                        max="100"
+                      />
+                      <div className="text-xs text-yellow-600 mt-1">
+                        Band gets {100 - inputs.merchSplitToCowboy}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+              </div>
+            </div>
+
+            {/* COGS - Venue Only */}
+            <div className="bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-orange-800 mb-4">
+                Cost of Goods Sold - Venue Only (%)
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-orange-700 mb-1">
+                    Bar COGS (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={inputs.barCOGS || ''}
+                    onChange={(e) => updateInput('barCOGS', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                    min="0"
+                    max="100"
+                  />
+                  <div className="text-xs text-orange-600 mt-1">Cost of drinks/food sold</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-orange-700 mb-1">
+                    Merchandise COGS (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={inputs.merchandiseCOGS || ''}
+                    onChange={(e) => updateInput('merchandiseCOGS', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                    min="0"
+                    max="100"
+                  />
+                  <div className="text-xs text-orange-600 mt-1">Only if venue sells merchandise</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Fixed Costs - Venue Only */}
+            <div className="bg-gradient-to-br from-red-50 to-pink-50 border-2 border-red-200 rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-red-800 mb-4">
+                Venue Fixed Costs (Per Show)
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-red-700 mb-1">
+                    Staff Costs ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={inputs.staffCosts || ''}
+                    onChange={(e) => updateInput('staffCosts', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
+                  />
+                  <div className="text-xs text-red-600 mt-1">Bartenders, security, sound tech</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-red-700 mb-1">
+                    Utilities ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={inputs.utilitiesCosts || ''}
+                    onChange={(e) => updateInput('utilitiesCosts', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
+                  />
+                  <div className="text-xs text-red-600 mt-1">Power, water, AC for event</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-red-700 mb-1">
+                    Facility Costs ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={inputs.facilityCosts || ''}
+                    onChange={(e) => updateInput('facilityCosts', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
+                  />
+                  <div className="text-xs text-red-600 mt-1">Cleaning, setup, maintenance</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-red-700 mb-1">
+                    Marketing ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={inputs.marketingCosts || ''}
+                    onChange={(e) => updateInput('marketingCosts', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
+                  />
+                  <div className="text-xs text-red-600 mt-1">Ads, flyers, promotion</div>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-red-700 mb-1">
+                    Other Fixed Costs ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={inputs.otherFixedCosts || ''}
+                    onChange={(e) => updateInput('otherFixedCosts', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
+                  />
+                  <div className="text-xs text-red-600 mt-1">Insurance, permits, misc expenses</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Results Section */}
+          <div className="space-y-6">
+            
+            {/* Detailed Financial Breakdown - Split View */}
+            
+            {/* Cowboy Detailed Breakdown */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-green-800 mb-4">
+                The Cowboy - Financial Breakdown
+              </h3>
+              <div className="space-y-4">
+                
+                {/* Cowboy Revenue */}
+                <div className="bg-white p-4 rounded-lg border border-green-200">
+                  <h4 className="font-semibold text-green-900 mb-2">Cowboy Revenue</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Cover Charges ({inputs.estimatedAttendance} × ${inputs.coverCharge})</span>
+                      <span>${(inputs.estimatedAttendance * inputs.coverCharge).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Bar Sales ({inputs.estimatedAttendance} × ${inputs.barRevenue})</span>
+                      <span>${(inputs.estimatedAttendance * inputs.barRevenue).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tickets ({inputs.ticketSplitToCowboy}% of ${(inputs.estimatedAttendance * inputs.ticketPrice).toLocaleString()})</span>
+                      <span>${(inputs.estimatedAttendance * inputs.ticketPrice * inputs.ticketSplitToCowboy / 100).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Merchandise ({inputs.merchSplitToCowboy}% of ${(inputs.estimatedAttendance * inputs.merchandiseRevenue).toLocaleString()})</span>
+                      <span>${(inputs.estimatedAttendance * inputs.merchandiseRevenue * inputs.merchSplitToCowboy / 100).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-green-800 border-t border-green-200 pt-2">
+                      <span>Total Cowboy Revenue</span>
+                      <span>${results.cowboy.revenue.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cowboy COGS */}
+                <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                  <h4 className="font-semibold text-orange-900 mb-2">Cost of Goods Sold</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Bar COGS ({inputs.barCOGS}%)</span>
+                      <span>${(inputs.estimatedAttendance * inputs.barRevenue * inputs.barCOGS / 100).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Merchandise COGS ({inputs.merchandiseCOGS}%)</span>
+                      <span>${(inputs.estimatedAttendance * inputs.merchandiseRevenue * inputs.merchSplitToCowboy / 100 * inputs.merchandiseCOGS / 100).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-orange-800 border-t border-orange-200 pt-2">
+                      <span>Total COGS</span>
+                      <span>${results.cowboy.cogs.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cowboy Gross Profit */}
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div className="flex justify-between font-semibold text-blue-800">
+                    <span>Gross Profit (Revenue - COGS)</span>
+                    <span>${results.cowboy.grossProfit.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Cowboy Fixed Costs */}
+                <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                  <h4 className="font-semibold text-red-900 mb-2">Fixed Costs</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Band Payment</span>
+                      <span>${inputs.bandOffer.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Staff</span>
+                      <span>${inputs.staffCosts.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Utilities</span>
+                      <span>${inputs.utilitiesCosts.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Facility</span>
+                      <span>${inputs.facilityCosts.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Marketing</span>
+                      <span>${inputs.marketingCosts.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Other</span>
+                      <span>${inputs.otherFixedCosts.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-red-800 border-t border-red-200 pt-2">
+                      <span>Total Fixed Costs</span>
+                      <span>${results.cowboy.fixedCosts.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cowboy Net Profit */}
+                <div className={`p-4 rounded-lg border-2 ${results.cowboy.netProfit >= 0 ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'}`}>
+                  <div className={`flex justify-between font-bold text-lg ${results.cowboy.netProfit >= 0 ? 'text-green-800' : 'text-red-800'}`}>
+                    <span>COWBOY NET PROFIT</span>
+                    <span>${results.cowboy.netProfit.toLocaleString()}</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Band Detailed Breakdown */}
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-purple-800 mb-4">
+                The Band - Financial Breakdown
+              </h3>
+              <div className="space-y-4">
+                
+                {/* Band Revenue */}
+                <div className="bg-white p-4 rounded-lg border border-purple-200">
+                  <h4 className="font-semibold text-purple-900 mb-2">Band Revenue</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Tickets ({100 - inputs.ticketSplitToCowboy}% of ${(inputs.estimatedAttendance * inputs.ticketPrice).toLocaleString()})</span>
+                      <span>${(inputs.estimatedAttendance * inputs.ticketPrice * (100 - inputs.ticketSplitToCowboy) / 100).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Merchandise ({100 - inputs.merchSplitToCowboy}% of ${(inputs.estimatedAttendance * inputs.merchandiseRevenue).toLocaleString()})</span>
+                      <span>${(inputs.estimatedAttendance * inputs.merchandiseRevenue * (100 - inputs.merchSplitToCowboy) / 100).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold text-purple-800 border-t border-purple-200 pt-2">
+                      <span>Total Band Revenue</span>
+                      <span>${results.band.revenue.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Band Costs */}
+                <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                  <h4 className="font-semibold text-red-900 mb-2">Band Costs</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span>Payment to Venue</span>
+                      <span>${inputs.bandOffer.toLocaleString()}</span>
+                    </div>
+                    <div className="text-xs text-red-600 mt-2">
+                      * Band also has their own costs (travel, equipment, etc.) not shown here
+                    </div>
+                  </div>
+                </div>
+
+                {/* Band Net Profit */}
+                <div className={`p-4 rounded-lg border-2 ${results.band.netProfit >= 0 ? 'bg-purple-100 border-purple-300' : 'bg-red-100 border-red-300'}`}>
+                  <div className={`flex justify-between font-bold text-lg ${results.band.netProfit >= 0 ? 'text-purple-800' : 'text-red-800'}`}>
+                    <span>BAND NET PROFIT</span>
+                    <span>${results.band.netProfit.toLocaleString()}</span>
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    Before band's own expenses (travel, equipment, etc.)
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Per Customer Analysis */}
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Per Customer Analysis
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">
+                    ${results.revenuePerCustomer.toFixed(2)}
+                  </div>
+                  <div className="text-sm text-gray-600">Total Revenue per Customer</div>
+                </div>
+                <div className="text-center p-4 bg-red-50 rounded-lg">
+                  <div className="text-2xl font-bold text-red-600">
+                    ${results.costPerCustomer.toFixed(2)}
+                  </div>
+                  <div className="text-sm text-gray-600">Total Cost per Customer</div>
+                </div>
+                <div className={`text-center p-4 rounded-lg ${results.profitPerCustomer >= 0 ? 'bg-blue-50' : 'bg-red-50'}`}>
+                  <div className={`text-2xl font-bold ${results.profitPerCustomer >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                    ${results.profitPerCustomer.toFixed(2)}
+                  </div>
+                  <div className="text-sm text-gray-600">Combined Profit per Customer</div>
+                </div>
+              </div>
+              
+              {/* Individual breakdowns */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-green-800 mb-2">Cowboy Per Customer</h4>
+                  <div className="text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span>Revenue:</span>
+                      <span>${inputs.estimatedAttendance > 0 ? (results.cowboy.revenue / inputs.estimatedAttendance).toFixed(2) : '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Profit:</span>
+                      <span className={inputs.estimatedAttendance > 0 && results.cowboy.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        ${inputs.estimatedAttendance > 0 ? (results.cowboy.netProfit / inputs.estimatedAttendance).toFixed(2) : '0.00'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-purple-800 mb-2">Band Per Customer</h4>
+                  <div className="text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span>Revenue:</span>
+                      <span>${inputs.estimatedAttendance > 0 ? (results.band.revenue / inputs.estimatedAttendance).toFixed(2) : '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Profit:</span>
+                      <span className={inputs.estimatedAttendance > 0 && results.band.netProfit >= 0 ? 'text-purple-600' : 'text-red-600'}>
+                        ${inputs.estimatedAttendance > 0 ? (results.band.netProfit / inputs.estimatedAttendance).toFixed(2) : '0.00'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Break-even Analysis */}
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Break-even Analysis (Venue Perspective)
+              </h3>
+              <div className="space-y-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                      {results.breakEvenAttendance.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-gray-600 mb-3">People needed for venue to break even</div>
                     
-                    <select
-                      value={band.bookingStatus}
-                      onChange={(e) => updateBookingStatus(band.id, e.target.value as Band['bookingStatus'])}
-                      className="w-full sm:w-auto text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    >
-                      <option value="Not Contacted">Not Contacted</option>
-                      <option value="Contacted">Contacted</option>
-                      <option value="Negotiating">Negotiating</option>
-                      <option value="Booked">Booked</option>
-                      <option value="Passed">Passed</option>
-                    </select>
+                    {inputs.estimatedAttendance > 0 && (
+                      <div className={`text-sm font-medium ${
+                        results.breakEvenAttendance <= inputs.estimatedAttendance ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {results.breakEvenAttendance <= inputs.estimatedAttendance 
+                          ? `✓ Safe - ${inputs.estimatedAttendance - results.breakEvenAttendance} person buffer`
+                          : `⚠ Risk - Need ${results.breakEvenAttendance - inputs.estimatedAttendance} more people`
+                        }
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
+
+                {/* Scenario Analysis */}
+                {inputs.estimatedAttendance > 0 && (
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="text-center p-2 bg-red-50 rounded">
+                      <div className="font-semibold">Worst Case (70%)</div>
+                      <div>{Math.round(inputs.estimatedAttendance * 0.7)} people</div>
+                      <div className="text-xs mt-1">
+                        <div className={results.breakEvenAttendance <= inputs.estimatedAttendance * 0.7 ? 'text-green-600' : 'text-red-600'}>
+                          Venue: {results.breakEvenAttendance <= inputs.estimatedAttendance * 0.7 ? 'Profit' : 'Loss'}
+                        </div>
+                        <div className="text-purple-600">
+                          Band: ${Math.round((results.band.revenue * 0.7) - results.band.costs).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-center p-2 bg-yellow-50 rounded">
+                      <div className="font-semibold">Expected</div>
+                      <div>{inputs.estimatedAttendance} people</div>
+                      <div className="text-xs mt-1">
+                        <div className={results.breakEvenAttendance <= inputs.estimatedAttendance ? 'text-green-600' : 'text-red-600'}>
+                          Venue: {results.breakEvenAttendance <= inputs.estimatedAttendance ? 'Profit' : 'Loss'}
+                        </div>
+                        <div className="text-purple-600">
+                          Band: ${results.band.netProfit.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-center p-2 bg-green-50 rounded">
+                      <div className="font-semibold">Best Case (130%)</div>
+                      <div>{Math.round(inputs.estimatedAttendance * 1.3)} people</div>
+                      <div className="text-xs mt-1">
+                        <div className={results.breakEvenAttendance <= inputs.estimatedAttendance * 1.3 ? 'text-green-600' : 'text-red-600'}>
+                          Venue: {results.breakEvenAttendance <= inputs.estimatedAttendance * 1.3 ? 'Profit' : 'Loss'}
+                        </div>
+                        <div className="text-purple-600">
+                          Band: ${Math.round((results.band.revenue * 1.3) - results.band.costs).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          ))}
+
+          </div>
         </div>
 
-        {/* No Results Message */}
-        {filteredBands.length === 0 && (
-          <div className="text-center py-8 sm:py-12">
-            <SpeakerWaveIcon className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No bands found</h3>
-            <p className="mt-1 text-sm text-gray-500 px-4">
-              {bands.length === 0 
-                ? "No band data available. Try clicking 'Refresh Data' to scan for new bands."
-                : "Try adjusting your search or filters."
-              }
-            </p>
-          </div>
-        )}
-
-        {/* Stats Summary */}
-        {filteredBands.length > 0 && (
-          <div className="mt-6 sm:mt-8 bg-white rounded-xl shadow-lg p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Discovery Summary</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <div className="text-xl sm:text-2xl font-bold text-orange-600">{filteredBands.length}</div>
-                <div className="text-xs sm:text-sm text-gray-500">Available Bands</div>
-              </div>
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <div className="text-xl sm:text-2xl font-bold text-green-600">
-                  {filteredBands.filter(b => b.recommendation === 'BOOK SOON').length}
+        {/* Saved Scenarios */}
+        {savedScenarios.length > 0 && (
+          <div className="mt-8 bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Saved Scenarios
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {savedScenarios.map((scenario, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4 hover:border-green-300 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-semibold text-gray-900">{scenario.name}</h4>
+                    <button
+                      onClick={() => loadScenario(scenario)}
+                      className="text-sm text-green-600 hover:text-green-800"
+                    >
+                      Load
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <div>Band: ${scenario.inputs.bandOffer.toLocaleString()}</div>
+                    <div>Attendance: {scenario.inputs.estimatedAttendance}</div>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className={scenario.results.cowboy.netProfit >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                        Cowboy: ${scenario.results.cowboy.netProfit.toLocaleString()}
+                      </div>
+                      <div className={scenario.results.band.netProfit >= 0 ? 'text-purple-600 font-semibold' : 'text-red-600 font-semibold'}>
+                        Band: ${scenario.results.band.netProfit.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {scenario.timestamp.toLocaleDateString()}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs sm:text-sm text-gray-500">Book Soon</div>
-              </div>
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <div className="text-xl sm:text-2xl font-bold text-blue-600">
-                  {filteredBands.filter(b => b.recommendation === 'STRONG CONSIDER').length}
-                </div>
-                <div className="text-xs sm:text-sm text-gray-500">Strong Consider</div>
-              </div>
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <div className="text-xl sm:text-2xl font-bold text-gray-600">
-                  {filteredBands.filter(b => b.bookingStatus === 'Booked').length}
-                </div>
-                <div className="text-xs sm:text-sm text-gray-500">Booked</div>
-              </div>
+              ))}
             </div>
           </div>
         )}
+
       </div>
-
-      {/* Performance Form Modal */}
-      <PerformanceFormModal
-        isOpen={performanceModalOpen}
-        onClose={() => {
-          setPerformanceModalOpen(false)
-          setSelectedBandForPerformance(null)
-        }}
-        bandName={selectedBandForPerformance?.name || ''}
-        bandId={selectedBandForPerformance?.id || ''}
-        onSubmit={handlePerformanceSubmit}
-      />
-
-      {/* Band Removal Modal */}
-      <BandRemovalModal
-        isOpen={removalModalOpen}
-        onClose={() => {
-          setRemovalModalOpen(false)
-          setSelectedBandForRemoval(null)
-        }}
-        bandName={selectedBandForRemoval?.name || ''}
-        bandId={selectedBandForRemoval?.id || ''}
-        onSubmit={handleRemovalSubmit}
-      />
     </div>
   )
 }
